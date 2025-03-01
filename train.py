@@ -4,29 +4,30 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
-from torchvision.models import wide_resnet50_2
+from torchvision.models import resnet50
 import parse
+from tqdm import tqdm  # Import tqdm for progress bars
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args = parse.get_args()
 
-class WideResNet28x10(nn.Module):
-    def __init__(self, num_classes=100):
-        super(WideResNet28x10, self).__init__()
-        self.model = wide_resnet50_2(weights=None)  # No pre-trained weights
-        self.model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)  # Adjust for CIFAR-100
-        self.model.fc = nn.Linear(2048, num_classes)  # Change output layer
+class ResNet50(nn.Module):
+    def __init__(self, num_classes=10):
+        super(ResNet50, self).__init__()
+        self.model = resnet50(weights=None)  # No pre-trained weights
+        self.model.fc = nn.Linear(2048, num_classes)  # Change output layer for CIFAR-10
     
     def forward(self, x):
         return self.model(x)
 
 def load_dataset():
     transform = transforms.Compose([
+        transforms.Resize((224, 224)),  # Resize CIFAR-10 images to 224x224 for ResNet50
         transforms.ToTensor(),
-        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     ])
-    train_dataset = datasets.CIFAR100(root='./data', train=True, download=True, transform=transform)
-    test_dataset = datasets.CIFAR100(root='./data', train=False, download=True, transform=transform)
+    train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 
     train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
@@ -39,7 +40,7 @@ def evaluate(model, test_loader, criterion):
     total_samples = 0
     
     with torch.no_grad():
-        for images, labels in test_loader:
+        for images, labels in tqdm(test_loader, desc="Evaluating", leave=False):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -50,13 +51,12 @@ def evaluate(model, test_loader, criterion):
             total_samples += labels.size(0)
     
     return total_loss / total_samples, correct / total_samples
-
 def train(model, train_loader, optimizer, criterion):
     model.train()
     total_loss, correct = 0, 0
     total_samples = 0
     
-    for images, labels in train_loader:
+    for images, labels in tqdm(train_loader, desc="Training", leave=False):
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(images)
@@ -72,29 +72,43 @@ def train(model, train_loader, optimizer, criterion):
     return total_loss / total_samples, correct / total_samples
 
 def make_model(train_loader, test_loader):
-    model = WideResNet28x10().to(device)
+    model = ResNet50().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=args.og_learning_rate, momentum=args.og_momentum, weight_decay=args.og_weight_decay)
+    optimizer = optim.AdamW(model.parameters(), lr=args.og_learning_rate, weight_decay=args.og_weight_decay)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.og_step_size, gamma=args.og_gamma)  
     
-    best_model = model
-    best_acc = 0
+    epochs_no_improve = 0
+    best_loss = float('inf')
+    best_model_state = model.state_dict()
+    
     for epoch in range(1, args.og_epochs + 1):
+        print(f"Epoch {epoch}/{args.og_epochs}")
         train_loss, train_acc = train(model, train_loader, optimizer, criterion)
         test_loss, test_acc = evaluate(model, test_loader, criterion)
         scheduler.step()
         
-        print(f'Epoch {epoch}/{args.og_epochs+1} | Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}')
+        print(f'  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}')
         
-        if test_acc > best_acc:
-            best_acc = test_acc
-            best_model = model
+        # Check if test loss improved
+        if test_loss < best_loss:
+            best_loss = test_loss
+            best_model_state = model.state_dict()
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+        
+        # Early stopping condition
+        if epochs_no_improve >= args.early_stopping_patience:
+            print(f"Early stopping triggered after {epoch} epochs.")
+            break
     
-    return best_model
+    # Load best model state before returning
+    model.load_state_dict(best_model_state)
+    return model
 
 if __name__ == '__main__':
-        train_set, test_set = load_dataset()
-        print("Data loaded")
-        model = make_model(train_set, test_set)
-        print("Model trained")
-        torch.save(model.state_dict(), 'models/og_model.pth')
+    train_loader, test_loader = load_dataset()
+    print("Data loaded")
+    model = make_model(train_loader, test_loader)
+    print("Model trained")
+    torch.save(model.state_dict(), 'models/resnet50_cifar10.pth')
