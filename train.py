@@ -14,8 +14,8 @@ args = parse.get_args()
 class ResNet50(nn.Module):
     def __init__(self, num_classes=10):
         super(ResNet50, self).__init__()
-        self.model = resnet50(weights=None)  # No pre-trained weights
-        self.model.fc = nn.Linear(2048, num_classes)  # Change output layer for CIFAR-10
+        self.model = resnet50(weights=None)
+        self.model.fc = nn.Linear(2048, num_classes)
     
     def forward(self, x):
         return self.model(x)
