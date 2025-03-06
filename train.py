@@ -6,7 +6,7 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 from torchvision.models import resnet50
 import parse
-from tqdm import tqdm  # Import tqdm for progress bars
+from tqdm import tqdm 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args = parse.get_args()

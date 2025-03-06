@@ -58,11 +58,11 @@ def get_args():
         default="models/resnet50_cifar10.pth",
         help="Path to the trained model",
     )
+    # parser.add_argument(
+    #     "--forget_ratio", type=float, default=0.1, help="Ratio of data to forget (0-1)"
+    # )
     parser.add_argument(
-        "--forget_ratio", type=float, default=0.1, help="Ratio of data to forget (0-1)"
-    )
-    parser.add_argument(
-        "--unlearn_batch_size", type=int, default=64, help="Batch size for unlearning"
+        "--unlearn_batch_size", type=int, default=8, help="Batch size for unlearning"
     )
     parser.add_argument(
         "--unlearn_lr", type=float, default=0.0001, help="Learning rate for unlearning"
@@ -92,7 +92,7 @@ def get_args():
         help="Path to save the unlearned model",
     )
     parser.add_argument(
-        "--forget_class", type=str, default="0", help="Index of the forget class"
+        "--forget_class", type=int, default=0, help="Index of the forget class"
     )
 
     args = parser.parse_args()

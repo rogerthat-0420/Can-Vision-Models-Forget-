@@ -17,3 +17,11 @@
 ### PIPELINE 4: evaluation pipeline
 **Given:** Model and Dataset
 **Output:** Evaluation metrics
+
+### ToDo (6/3/25):
+
+1. Run the quantzation and evaluation on og and unlearnt models (all combinations) and see if we are getting any valid results.
+2. Merge the code and make the entire codebase consistent. for instance, there are too many evaluate functions.
+3. Make a single file/notebook where the entire pipeline can be run.
+    - input: model names, dataset names, unlearning methods as lists
+    - output: json files storing all combination evaluations for all of them.
