@@ -11,6 +11,7 @@ import random
 import parse  
 from models import *
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args = parse.get_args()
 
