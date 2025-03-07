@@ -1,9 +1,9 @@
 # evaluation pipeline. 
 # Inputs are (as args): -
     # 1. model_path: path to the model file.
-    # 2. dataset_type: type of dataset to evaluate on. (TEST or FORGET/RETAIN)
+    # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT)
     # 3. dataset_name: name of the dataset to evaluate on. (CIFAR10, CIFAR100, PinsFaceRecognition)
-    # 4. dataset_path: path to the dataset file. (Only for FORGET/RETAIN)
+    # 4. forget_dataset_path: path to the forget dataset file. (Only for UNLEARNT)
     # 5. og_batch_size: original batch size used for training.
 
 # Outputs are the evaluation metrics - accuracy, precision, recall, f1 score and average loss.
@@ -15,13 +15,15 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 import argparse
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import numpy as np
+from sklearn import linear_model, model_selection
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_path', required=True)
-parser.add_argument('--dataset_type', default='TEST')
+parser.add_argument('--evaluation_type', default='OG')
 parser.add_argument('--dataset_name', default='CIFAR10')
-parser.add_argument('--dataset_path', required=False)
+parser.add_argument('--forget_dataset_path', required=False)
 parser.add_argument('--og_batch_size', default=128)
 args = parser.parse_args()
 
@@ -63,6 +65,48 @@ def evaluate(model, dataset_loader, criterion):
         'loss': avg_loss
     } 
 
+def simple_mia(sample_loss, members, n_splits=10, random_state=0):
+    """Computes cross-validation score of a membership inference attack.
+
+    Args:
+      sample_loss : array_like of shape (n,).
+        objective function evaluated on n samples.
+      members : array_like of shape (n,),
+        whether a sample was used for training.
+      n_splits: int
+        number of splits to use in the cross-validation.
+    Returns:
+      scores : array_like of size (n_splits,)
+    """
+
+    unique_members = np.unique(members)
+    if not np.all(unique_members == np.array([0, 1])):
+        raise ValueError("members should only have 0 and 1s")
+
+    attack_model = linear_model.LogisticRegression()
+    cv = model_selection.StratifiedShuffleSplit(
+        n_splits=n_splits, random_state=random_state
+    )
+    return model_selection.cross_val_score(
+        attack_model, sample_loss, members, cv=cv, scoring="accuracy"
+    )
+
+def compute_losses(net, loader):
+    """Auxiliary function to compute per-sample losses"""
+
+    criterion = nn.CrossEntropyLoss(reduction="none")
+    all_losses = []
+
+    for inputs, targets in loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+
+        logits = net(inputs)
+        losses = criterion(logits, targets).numpy(force=True)
+        for l in losses:
+            all_losses.append(l)
+
+    return np.array(all_losses)
+
 def load_test_dataset(dataset_name):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),  # Resizing for ResNet
@@ -84,12 +128,30 @@ def load_test_dataset(dataset_name):
 if __name__ == '__main__':
 
     model = torch.load(args.model_path)
-
-    if args.dataset_type == 'TEST':
-        dataset_loader = load_test_dataset(args.dataset_name)
-    else:
-        dataset_loader = torch.load(args.dataset_path)
-
     criterion = nn.CrossEntropyLoss()
-    evaluation_metrics = evaluate(model, dataset_loader, criterion)
+    test_loader = load_test_dataset(args.dataset_name)
+
+    if args.dataset_type == 'OG':
+
+        evaluation_metrics = evaluate(model, test_loader, criterion)
+
+    elif args.dataset_type == 'UNLEARNT':
+
+        forget_loader = torch.load(args.dataset_path)
+
+        forget_losses = compute_losses(model, forget_loader)
+        test_losses = compute_losses(model, test_loader)
+
+        # This might not be true if the dataset is not balanced. We need to check this when evaluating the unlearnt model. 
+        assert len(test_losses) == len(forget_losses)
+
+        samples_mia = np.concatenate((test_losses, forget_losses)).reshape((-1, 1))
+        labels_mia = [0] * len(test_losses) + [1] * len(forget_losses)
+
+        mia_scores = simple_mia(samples_mia, labels_mia)
+        print(f"The MIA has an accuracy of {mia_scores.mean():.3f} on forgotten vs unseen images")
+
+    else:
+        raise ValueError('Invalid evaluation type. Please choose from OG or UNLEARNT.')
+
     print('Evaluation finished.')
