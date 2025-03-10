@@ -50,19 +50,26 @@ def get_args():
         default=5,
         help="Number of epochs to wait before early stopping",
     )
+    
+    parser.add_argument(
+        "--gold_standard_class",
+        type=int,
+        default=None,
+        help="Only for getting the gold standard unlearnt model"
+    )
 
     # Unlearning-specific parameters
     parser.add_argument(
         "--model_path",
         type=str,
-        default="models/resnet50_cifar10_new.pth",
+        default="models/resnet50_cifar10.pth",
         help="Path to the trained model",
     )
     # parser.add_argument(
     #     "--forget_ratio", type=float, default=0.1, help="Ratio of data to forget (0-1)"
     # )
     parser.add_argument(
-        "--unlearn_batch_size", type=int, default=8, help="Batch size for unlearning"
+        "--unlearn_batch_size", type=int, default=32, help="Batch size for unlearning"
     )
     parser.add_argument(
         "--unlearn_lr", type=float, default=0.0001, help="Learning rate for unlearning"
@@ -80,7 +87,7 @@ def get_args():
         help="Lambda parameter for Potion loss",
     )
     parser.add_argument(
-        "--unlearn_epochs", type=int, default=10, help="Number of epochs for unlearning"
+        "--unlearn_epochs", type=int, default=100, help="Number of epochs for unlearning"
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
