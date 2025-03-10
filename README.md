@@ -25,3 +25,8 @@
 3. Make a single file/notebook where the entire pipeline can be run.
     - input: model names, dataset names, unlearning methods as lists
     - output: json files storing all combination evaluations for all of them.
+
+### Evaluation Metrics
+
+1. Original resent50 Model trained on CIFAR10 - Accuracy: 67.98%, Precision: 0.7450, Recall: 0.6798, F1 Score: 0.6711, Average Loss: 1.0886
+
