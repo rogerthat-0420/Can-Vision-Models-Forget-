@@ -11,8 +11,9 @@ import random
 import parse
 from models import *
 import argparse
+import copy
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 args = parse.get_args()
 
@@ -95,7 +96,6 @@ class DataManager:
         )
         return self.forget_loader, self.retain_loader, self.test_loader
 
-
 class PotionUnlearner:
     def __init__(self, args, model):
         self.args = args
@@ -167,12 +167,18 @@ class PotionUnlearner:
 
         return avg_loss, accuracy
 
-    def unlearn(self, forget_loader, retain_loader):
+    def unlearn(self, forget_loader, retain_loader, test_loader=None):
         """
-        Perform unlearning using Potion method.
+        Perform unlearning using the Potion method.
         Alternates between forgetting and retaining batches.
         """
         print(f"Starting unlearning process for {self.args.unlearn_epochs} epochs")
+
+        epochs_no_improve = 0
+        best_forget_accuracy = 1.0  # Start with a high accuracy for the forget set
+        best_retain_accuracy = 0.0  # Start with a low accuracy for the retain set
+        best_model_state = self.model.state_dict()
+        patience = 3
 
         for epoch in range(1, self.args.unlearn_epochs + 1):
             self.model.train()
@@ -183,73 +189,86 @@ class PotionUnlearner:
             forget_samples = 0
             retain_samples = 0
 
-            # Use zip to iterate through both loaders, cycling through the shorter one
-            forget_iter = iter(forget_loader)
-            retain_iter = iter(retain_loader)
+            # Create a combined iterator for both datasets
+            forget_data = list(forget_loader)
+            retain_data = list(retain_loader)
+            
+            # Use the smaller dataset size to avoid bias
+            num_iterations = min(len(forget_data), len(retain_data))
+            
+            # Shuffle data each epoch
+            random.shuffle(forget_data)
+            random.shuffle(retain_data)
 
-            # Determine the number of iterations (use the length of the forget_loader)
-            num_iterations = len(forget_loader)
-
-            for _ in tqdm(
-                range(num_iterations), desc=f"Epoch {epoch}/{self.args.unlearn_epochs}"
-            ):
-                # Get forget batch (with cycling)
-                try:
-                    forget_images, forget_labels = next(forget_iter)
-                except StopIteration:
-                    forget_iter = iter(forget_loader)
-                    forget_images, forget_labels = next(forget_iter)
-
-                # Get retain batch (with cycling)
-                try:
-                    retain_images, retain_labels = next(retain_iter)
-                except StopIteration:
-                    retain_iter = iter(retain_loader)
-                    retain_images, retain_labels = next(retain_iter)
+            for i in tqdm(range(num_iterations), desc=f"Epoch {epoch}/{self.args.unlearn_epochs}"):
+                # Get forget batch
+                forget_images, forget_labels = forget_data[i % len(forget_data)]
+                
+                # Get retain batch
+                retain_images, retain_labels = retain_data[i % len(retain_data)]
 
                 # Process forget batch
-                forget_loss, forget_batch_correct = self.train_step(
-                    forget_images, forget_labels, forget=True
-                )
+                forget_loss, forget_batch_correct = self.train_step(forget_images, forget_labels, forget=True)
                 forget_loss_sum += forget_loss * forget_images.size(0)
                 forget_correct += forget_batch_correct
                 forget_samples += forget_images.size(0)
 
                 # Process retain batch
-                retain_loss, retain_batch_correct = self.train_step(
-                    retain_images, retain_labels, forget=False
-                )
+                retain_loss, retain_batch_correct = self.train_step(retain_images, retain_labels, forget=False)
                 retain_loss_sum += retain_loss * retain_images.size(0)
                 retain_correct += retain_batch_correct
                 retain_samples += retain_images.size(0)
 
-            # Calculate average loss and accuracy
-            avg_forget_loss = forget_loss_sum / forget_samples
-            avg_retain_loss = retain_loss_sum / retain_samples
-            forget_accuracy = forget_correct / forget_samples
-            retain_accuracy = retain_correct / retain_samples
+            # Compute metrics
+            avg_forget_loss = forget_loss_sum / max(forget_samples, 1)
+            avg_retain_loss = retain_loss_sum / max(retain_samples, 1)
+            forget_accuracy = forget_correct / max(forget_samples, 1)
+            retain_accuracy = retain_correct / max(retain_samples, 1)
 
-            print(f"Epoch {epoch} Results:")
+            print(f"Epoch {epoch}:")
             print(
-                f"  Forget Set - Loss: {avg_forget_loss:.4f}, Accuracy: {forget_accuracy:.4f}"
+                f"\tForget Set - Loss: {avg_forget_loss:.4f}, Accuracy: {forget_accuracy:.4f}"
             )
             print(
-                f"  Retain Set - Loss: {avg_retain_loss:.4f}, Accuracy: {retain_accuracy:.4f}"
+                f"\tRetain Set - Loss: {avg_retain_loss:.4f}, Accuracy: {retain_accuracy:.4f}"
             )
 
-            # Optionally, evaluate on both sets separately
-            if epoch % 5 == 0 or epoch == self.args.unlearn_epochs:
-                forget_test_loss, forget_test_acc = self.evaluate(
-                    forget_loader, desc="Evaluating Forget Set"
-                )
-                retain_test_loss, retain_test_acc = self.evaluate(
-                    retain_loader, desc="Evaluating Retain Set"
-                )
-                print(
-                    f"  Evaluation - Forget Acc: {forget_test_acc:.4f}, Retain Acc: {retain_test_acc:.4f}"
-                )
+            # Evaluate forget & retain test sets every epoch
+            forget_test_loss, forget_test_acc = self.evaluate(forget_loader, desc="Evaluating Forget Set")
+            retain_test_loss, retain_test_acc = self.evaluate(retain_loader, desc="Evaluating Retain Set")
+            print(
+                f"\tEvaluation - Forget Acc: {forget_test_acc:.4f}, Retain Acc: {retain_test_acc:.4f}"
+            )
+            
+            # Calculate a score that balances forgetting and retention
+            # We want to minimize forget_test_acc and maximize retain_test_acc
+            unlearning_score = (1.0 - forget_test_acc) * retain_test_acc
+            current_best = (1.0 - best_forget_accuracy) * best_retain_accuracy
+            
+            print(
+                f"\tunlearning_score = {unlearning_score}"
+            )
+            
+            # Save model if it's better at forgetting while maintaining retention
+            if unlearning_score > current_best:
+                best_forget_accuracy = forget_test_acc
+                best_retain_accuracy = retain_test_acc
+                best_model_state = self.model.state_dict()
+                epochs_no_improve = 0
+                print(f" New best model found! Unlearning score: {unlearning_score:.4f}")
+            else:
+                epochs_no_improve += 1
+            
+            # Early stopping based on combined metric
+            if epochs_no_improve >= patience or forget_test_acc < 1e-5:
+                print(f"Early stopping triggered after {epoch} epochs.")
+                print(f"Best model had Forget Acc: {best_forget_accuracy:.4f}, Retain Acc: {best_retain_accuracy:.4f}")
+                break
 
+        # Restore best model
+        self.model.load_state_dict(best_model_state)
         print("Unlearning completed")
+
 
     def save_model(self, path):
         """Save the unlearned model"""
@@ -295,4 +314,6 @@ if __name__ == "__main__":
     print(f"  Test Set - Loss: {test_loss:.4f}, Accuracy: {test_acc:.4f}")
 
     # Save the unlearned model
-    unlearner.save_model(args.output_path)
+    # output_path = args.output_path
+    output_path = "unlearnt_models/resnet50_cifar10_unlearnt.pth"
+    unlearner.save_model(output_path)
