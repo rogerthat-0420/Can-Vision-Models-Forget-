@@ -14,12 +14,11 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+from torchvision.models import resnet50
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import argparse
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import numpy as np
-from sklearn import linear_model, model_selection
 import numpy as np
 from sklearn import linear_model, model_selection
 
@@ -27,9 +26,7 @@ from sklearn import linear_model, model_selection
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_path', required=True)
 parser.add_argument('--evaluation_type', default='OG')
-parser.add_argument('--evaluation_type', default='OG')
 parser.add_argument('--dataset_name', default='CIFAR10')
-parser.add_argument('--forget_dataset_path', required=False)
 parser.add_argument('--forget_dataset_path', required=False)
 parser.add_argument('--og_batch_size', default=128)
 args = parser.parse_args()
@@ -128,8 +125,6 @@ def load_test_dataset(dataset_name):
     test_loader = DataLoader(test_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
 
     return test_loader
-
-from torchvision.models import resnet50
 
 class ResNet50(nn.Module):
     def __init__(self, num_classes=10):
