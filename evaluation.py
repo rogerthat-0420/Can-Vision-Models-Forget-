@@ -2,7 +2,9 @@
 # Inputs are (as args): -
     # 1. model_path: path to the model file.
     # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT)
+    # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT)
     # 3. dataset_name: name of the dataset to evaluate on. (CIFAR10, CIFAR100, PinsFaceRecognition)
+    # 4. forget_dataset_path: path to the forget dataset file. (Only for UNLEARNT)
     # 4. forget_dataset_path: path to the forget dataset file. (Only for UNLEARNT)
     # 5. og_batch_size: original batch size used for training.
 
@@ -18,12 +20,16 @@ import argparse
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 from sklearn import linear_model, model_selection
+import numpy as np
+from sklearn import linear_model, model_selection
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_path', required=True)
 parser.add_argument('--evaluation_type', default='OG')
+parser.add_argument('--evaluation_type', default='OG')
 parser.add_argument('--dataset_name', default='CIFAR10')
+parser.add_argument('--forget_dataset_path', required=False)
 parser.add_argument('--forget_dataset_path', required=False)
 parser.add_argument('--og_batch_size', default=128)
 args = parser.parse_args()
