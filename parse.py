@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument(
         "--og_learning_rate",
         type=float,
-        default=0.1,
+        default=0.01,
         help="Initial learning rate for og model",
     )
     parser.add_argument(
@@ -55,7 +55,7 @@ def get_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="models/resnet50_cifar10.pth",
+        default="models/resnet50_cifar10_new.pth",
         help="Path to the trained model",
     )
     # parser.add_argument(

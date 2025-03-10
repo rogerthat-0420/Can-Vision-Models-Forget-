@@ -28,5 +28,6 @@
 
 ### Evaluation Metrics
 
-1. Original resent50 Model trained on CIFAR10 - Accuracy: 67.98%, Precision: 0.7450, Recall: 0.6798, F1 Score: 0.6711, Average Loss: 1.0886
-
+1. Original resent50 Model trained on CIFAR10 - Accuracy: 84.21%, Precision: 0.8511, Recall: 0.8421, F1 Score: 0.8432, Average Loss: 0.8791
+2. Quantized fp8 resnet50 Model trained on CIFAR10 - Accuracy: 72.64%, Precision: 0.7607, Recall: 0.7264, F1 Score: 0.7288, Average Loss: 1.5751
+3. Quantized int8 resnet50 Model trained on CIFAR10 - Accuracy: 72.92%, Precision: 0.7647, Recall: 0.7292, F1 Score: 0.7316, Average Loss: 1.6108

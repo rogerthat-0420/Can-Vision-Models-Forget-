@@ -1,8 +1,7 @@
 # evaluation pipeline. 
 # Inputs are (as args): -
     # 1. model_path: path to the model file.
-    # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT)
-    # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT)
+    # 2. evaluation_type: type of evaluation to compute. (OG, UNLEARNT, QUANTIZED)
     # 3. dataset_name: name of the dataset to evaluate on. (CIFAR10, CIFAR100, PinsFaceRecognition)
     # 4. forget_dataset_path: path to the forget dataset file. (Only for UNLEARNT)
     # 4. forget_dataset_path: path to the forget dataset file. (Only for UNLEARNT)
@@ -21,6 +20,11 @@ import argparse
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 from sklearn import linear_model, model_selection
+from models import ResNet50
+
+from modelopt.torch.quantization.utils import export_torch_mode
+import modelopt.torch.opt as mto
+import torch_tensorrt as torchtrt
 
 
 parser = argparse.ArgumentParser()
@@ -28,7 +32,7 @@ parser.add_argument('--model_path', required=True)
 parser.add_argument('--evaluation_type', default='OG')
 parser.add_argument('--dataset_name', default='CIFAR10')
 parser.add_argument('--forget_dataset_path', required=False)
-parser.add_argument('--og_batch_size', default=128)
+parser.add_argument('--og_batch_size', default=16)
 args = parser.parse_args()
 
 def evaluate(model, dataset_loader, criterion, device):
@@ -126,32 +130,32 @@ def load_test_dataset(dataset_name):
 
     return test_loader
 
-class ResNet50(nn.Module):
-    def __init__(self, num_classes=10):
-        super(ResNet50, self).__init__()
-        self.model = resnet50(weights=None)
-        self.model.fc = nn.Linear(2048, num_classes)
-    
-    def forward(self, x):
-        return self.model(x)
-
 
 if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    
-    model = ResNet50()
-    model.load_state_dict(torch.load(args.model_path))
 
     criterion = nn.CrossEntropyLoss()
     test_loader = load_test_dataset(args.dataset_name)
 
     if args.evaluation_type == 'OG':
-
+        model = ResNet50()
+        model.load_state_dict(torch.load(args.model_path, map_location=torch.device(device)))
         evaluation_metrics = evaluate(model, test_loader, criterion, device)
+    
+    elif args.evaluation_type == 'QUANTIZED':
+        model = ResNet50()
+        mto.restore(model, args.model_path)
+        compiled_model = torch.compile(model, backend='tensorrt')
+        # forget_loader = torch.load(args.dataset_path)
+        with export_torch_mode():
+            evaluation_metrics = evaluate(model, test_loader, criterion, device)
 
     elif args.evaluation_type == 'UNLEARNT':
+        
+        model = ResNet50()
+        model.load_state_dict(torch.load(args.model_path))
 
         forget_loader = torch.load(args.dataset_path)
 

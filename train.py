@@ -45,12 +45,13 @@ def evaluate(model, test_loader, criterion):
             outputs = model(images)
             loss = criterion(outputs, labels)
             
-            total_loss += loss.item() * images.size(0)
+            # total_loss += loss.item() * images.size(0)
+            total_loss += loss.item()
             _, predicted = outputs.max(1)
             correct += predicted.eq(labels).sum().item()
             total_samples += labels.size(0)
     
-    return total_loss / total_samples, correct / total_samples
+    return total_loss / len(test_loader), correct / total_samples
 def train(model, train_loader, optimizer, criterion):
     model.train()
     total_loss, correct = 0, 0
@@ -64,46 +65,48 @@ def train(model, train_loader, optimizer, criterion):
         loss.backward()
         optimizer.step()
         
-        total_loss += loss.item() * images.size(0)
+        # total_loss += loss.item() * images.size(0)
+        total_loss += loss.item()
         _, predicted = outputs.max(1)
         correct += predicted.eq(labels).sum().item()
         total_samples += labels.size(0)
     
-    return total_loss / total_samples, correct / total_samples
+    return total_loss / len(train_loader), correct / total_samples
 
 def make_model(train_loader, test_loader):
     model = ResNet50().to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=args.og_learning_rate, weight_decay=args.og_weight_decay)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.og_step_size, gamma=args.og_gamma)  
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.og_step_size, gamma=args.og_gamma)  
     
     epochs_no_improve = 0
     best_loss = float('inf')
     best_model_state = model.state_dict()
     
-    for epoch in range(1, args.og_epochs + 1):
-        print(f"Epoch {epoch}/{args.og_epochs}")
+    for epoch in range(1, 41):
+        print(f"Epoch {epoch}/{40}")
         train_loss, train_acc = train(model, train_loader, optimizer, criterion)
         test_loss, test_acc = evaluate(model, test_loader, criterion)
-        scheduler.step()
-        
         print(f'  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}')
+
+        # scheduler.step()
         
-        # Check if test loss improved
-        if test_loss < best_loss:
-            best_loss = test_loss
-            best_model_state = model.state_dict()
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
         
-        # Early stopping condition
-        if epochs_no_improve >= args.early_stopping_patience:
-            print(f"Early stopping triggered after {epoch} epochs.")
-            break
+    #     # Check if test loss improved
+    #     if test_loss < best_loss:
+    #         best_loss = test_loss
+    #         best_model_state = model.state_dict()
+    #         epochs_no_improve = 0
+    #     else:
+    #         epochs_no_improve += 1
+        
+    #     # Early stopping condition
+    #     if epochs_no_improve >= args.early_stopping_patience:
+    #         print(f"Early stopping triggered after {epoch} epochs.")
+    #         break
     
-    # Load best model state before returning
-    model.load_state_dict(best_model_state)
+    # # Load best model state before returning
+    # model.load_state_dict(best_model_state)
     return model
 
 if __name__ == '__main__':
@@ -111,4 +114,4 @@ if __name__ == '__main__':
     print("Data loaded")
     model = make_model(train_loader, test_loader)
     print("Model trained")
-    torch.save(model.state_dict(), 'models/resnet50_cifar10.pth')
+    torch.save(model.state_dict(), 'models/resnet50_cifar10_new.pth')
