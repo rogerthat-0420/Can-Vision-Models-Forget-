@@ -7,7 +7,10 @@ from torch.utils.data import DataLoader
 from torchvision.models import resnet50
 import parse
 from tqdm import tqdm 
+import os
+from torch.utils.data import Subset
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 args = parse.get_args()
 
@@ -28,6 +31,19 @@ def load_dataset():
     ])
     train_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+    
+    if args.gold_standard_class is not None:
+        gold_class = int(args.gold_standard_class)
+        print("l34 gold_class = ", gold_class)
+        
+        retain_train_indices = [i for i, (_, label) in enumerate(train_dataset) if label != gold_class]
+        retain_test_indices = [i for i, (_, label) in enumerate(test_dataset) if label != gold_class]
+        
+        train_dataset = Subset(train_dataset, retain_train_indices)
+        test_dataset = Subset(test_dataset, retain_test_indices)
+
+        print(f"Removed class {gold_class} from training dataset. New size: {len(train_dataset)}")
+        print(f"Removed class {gold_class} from testing dataset. New size: {len(test_dataset)}")
 
     train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
@@ -83,8 +99,8 @@ def make_model(train_loader, test_loader):
     best_loss = float('inf')
     best_model_state = model.state_dict()
     
-    for epoch in range(1, 41):
-        print(f"Epoch {epoch}/{40}")
+    for epoch in range(1, args.og_epochs):
+        print(f"Epoch {epoch}/{args.og_epochs}")
         train_loss, train_acc = train(model, train_loader, optimizer, criterion)
         test_loss, test_acc = evaluate(model, test_loader, criterion)
         print(f'  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}')
@@ -92,21 +108,21 @@ def make_model(train_loader, test_loader):
         # scheduler.step()
         
         
-    #     # Check if test loss improved
-    #     if test_loss < best_loss:
-    #         best_loss = test_loss
-    #         best_model_state = model.state_dict()
-    #         epochs_no_improve = 0
-    #     else:
-    #         epochs_no_improve += 1
+        # Check if test loss improved
+        if test_loss < best_loss:
+            best_loss = test_loss
+            best_model_state = model.state_dict()
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
         
-    #     # Early stopping condition
-    #     if epochs_no_improve >= args.early_stopping_patience:
-    #         print(f"Early stopping triggered after {epoch} epochs.")
-    #         break
+        # Early stopping condition
+        if epochs_no_improve >= args.early_stopping_patience:
+            print(f"Early stopping triggered after {epoch} epochs.")
+            break
     
-    # # Load best model state before returning
-    # model.load_state_dict(best_model_state)
+    # Load best model state before returning
+    model.load_state_dict(best_model_state)
     return model
 
 if __name__ == '__main__':
@@ -114,4 +130,4 @@ if __name__ == '__main__':
     print("Data loaded")
     model = make_model(train_loader, test_loader)
     print("Model trained")
-    torch.save(model.state_dict(), 'models/resnet50_cifar10_new.pth')
+    torch.save(model.state_dict(), f'models/resnet50_cifar10.pth')
