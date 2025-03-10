@@ -6,8 +6,10 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 import argparse
 
+from models import ResNet50
+
 def load_resnet_model(model_path):
-    model = models.resnet18()
+    model = ResNet50()
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
     return model
@@ -21,7 +23,7 @@ def get_cifar10_subset():
     return DataLoader(torch.utils.data.Subset(dataset, range(100)), batch_size=10)
 
 def apply_static_quantization(model, data_loader):
-    model.fuse_model()
+    # model.fuse_model()
     model.qconfig = tq.get_default_qconfig("fbgemm")
     tq.prepare(model, inplace=True)
     with torch.no_grad():
@@ -47,9 +49,9 @@ def main(model_path, output_path, quant_type):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, required=True, help="Path to the pretrained model file")
-    parser.add_argument("--output_path", type=str, required=True, help="Path to save the quantized model")
-    parser.add_argument("--quant_type", type=str, choices=["static", "dynamic"], required=True, help="Type of quantization")
+    parser.add_argument("--model-path", type=str, required=True, help="Path to the pretrained model file", dest='model_path')
+    parser.add_argument("--output-path", type=str, required=True, help="Path to save the quantized model", dest='output_path')
+    parser.add_argument("--quant-type", type=str, choices=["static", "dynamic"], required=True, help="Type of quantization", dest='quant_type')
     args = parser.parse_args()
     
     main(args.model_path, args.output_path, args.quant_type)
