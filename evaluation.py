@@ -36,7 +36,7 @@ parser.add_argument('--model_path', required=True)
 parser.add_argument('--evaluation_type', default='OG')
 parser.add_argument('--dataset_name', default='CIFAR10')
 parser.add_argument('--unlearnt_class',default=0)
-parser.add_argument('--batch_size', default=128)
+parser.add_argument('--batch_size', default=16)
 args = parser.parse_args()
 
 def evaluate(model, dataset_loader, criterion):
@@ -220,6 +220,7 @@ if __name__ == '__main__':
         forget_losses = compute_losses(model, train_forget_loader)
         test_losses = compute_losses(model, test_loader)
         
+        np.random.seed(42)
         np.random.shuffle(test_losses)
         test_losses = test_losses[:len(forget_losses)]
         
@@ -250,7 +251,7 @@ if __name__ == '__main__':
             train_forget_loader = load_train_forget_loader(args.dataset_name, args.unlearnt_class)
             forget_losses = compute_losses(model, train_forget_loader)
             test_losses = compute_losses(model, test_loader)
-            
+            np.random.seed(42)
             np.random.shuffle(test_losses)
             test_losses = test_losses[:len(forget_losses)]
             
