@@ -101,21 +101,50 @@ def simple_mia(sample_loss, members, n_splits=10, random_state=0):
         attack_model, sample_loss, members, cv=cv, scoring="accuracy"
     )
 
-def compute_losses(net, loader):
+def compute_losses(net, loader, subset=False, subset_size=1000):
     """Auxiliary function to compute per-sample losses"""
 
     criterion = nn.CrossEntropyLoss(reduction="none")
     all_losses = []
+    all_targets = []
     net.to(device)
     net.eval()
+    np.random.seed(42)
 
     for inputs, targets in loader:
         inputs, targets = inputs.to(device), targets.to(device)
 
         logits = net(inputs)
-        losses = criterion(logits, targets).numpy(force=True)
-        for l in losses:
-            all_losses.append(l)
+        losses = criterion(logits, targets)
+        
+        losses_np = losses.detach().cpu().numpy()
+        targets_np = targets.detach().cpu().numpy()
+        all_losses.extend(losses_np)
+        all_targets.extend(targets_np)
+        
+    all_losses = np.array(all_losses)
+    all_targets = np.array(all_targets)
+    
+    if subset and len(all_losses) > subset_size:
+        indices_class0 = np.where(all_targets == 0)[0]
+        n_class0 = len(indices_class0)
+        if n_class0 >= subset_size:
+            # If there are at least subset_size class 0 samples, randomly select subset_size of them.
+            print("yes")
+            selected_indices = np.random.choice(indices_class0, subset_size, replace=False)
+        else:
+            # Include all class 0 indices and sample the remainder from non-class0 samples.
+            indices_non_class0 = np.where(all_targets != 0)[0]
+            n_needed = subset_size - n_class0
+            # Check if there are enough non-class0 samples
+            if n_needed > len(indices_non_class0):
+                selected_indices = np.concatenate((indices_class0, indices_non_class0))
+            else:
+                selected_non_class0 = np.random.choice(indices_non_class0, n_needed, replace=False)
+                selected_indices = np.concatenate((indices_class0, selected_non_class0))
+
+        selected_indices = np.sort(selected_indices)
+        return all_losses[selected_indices]
 
     return np.array(all_losses)
 
@@ -217,13 +246,26 @@ if __name__ == '__main__':
         print("Test Retain Results:", test_retain_results)
         
         train_forget_loader = load_train_forget_loader(args.dataset_name, args.unlearnt_class)
-        forget_losses = compute_losses(model, train_forget_loader)
-        test_losses = compute_losses(model, test_loader)
-        
-        np.random.seed(42)
-        np.random.shuffle(test_losses)
-        test_losses = test_losses[:len(forget_losses)]
-        
+        forget_losses = compute_losses(model, train_forget_loader, subset = True)
+        test_losses = compute_losses(model, test_loader, subset=True)
+
+        # Plotting the losses
+        # import matplotlib.pyplot as plt
+
+        # plt.figure(figsize=(10, 5))
+        # plt.hist(forget_losses, bins=50, alpha=0.5, label='Forget Losses')
+        # plt.hist(test_losses, bins=50, alpha=0.5, label='Test Losses')
+        # plt.xlabel('Loss')
+        # plt.ylabel('Frequency')
+        # plt.title('Distribution of Forget and Test Losses')
+        # plt.legend(loc='upper right')
+        # plt.savefig("unlearnt.png")
+        # plt.close()
+        # print("Forget and Test Losses plotted and saved as gold_standard.png")        
+        # np.random.seed(42)
+        # np.random.shuffle(test_losses)
+        # test_losses = test_losses[:len(forget_losses)]
+        assert len(test_losses) == len(forget_losses)
         samples_mia = np.concatenate((test_losses, forget_losses)).reshape((-1, 1))
         labels_mia = [0] * len(test_losses) + [1] * len(forget_losses)
         
@@ -249,12 +291,12 @@ if __name__ == '__main__':
             
             # MIA
             train_forget_loader = load_train_forget_loader(args.dataset_name, args.unlearnt_class)
-            forget_losses = compute_losses(model, train_forget_loader)
-            test_losses = compute_losses(model, test_loader)
-            np.random.seed(42)
-            np.random.shuffle(test_losses)
-            test_losses = test_losses[:len(forget_losses)]
-            
+            forget_losses = compute_losses(model, train_forget_loader, subset=True)
+            test_losses = compute_losses(model, test_loader, subset=True)
+            # np.random.seed(42)
+            # np.random.shuffle(test_losses)
+            # test_losses = test_losses[:len(forget_losses)]
+            assert len(test_losses) == len(forget_losses)
             samples_mia = np.concatenate((test_losses, forget_losses)).reshape((-1, 1))
             labels_mia = [0] * len(test_losses) + [1] * len(forget_losses)
             
