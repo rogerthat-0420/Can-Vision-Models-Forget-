@@ -7,7 +7,10 @@ from sklearn import linear_model, model_selection
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate_model(model, dataloader):
+def evaluate_model(args, model, dataloader):
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+
     criterion = nn.CrossEntropyLoss()
     model.to(device)
     model.eval()

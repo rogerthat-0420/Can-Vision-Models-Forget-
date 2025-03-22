@@ -315,5 +315,5 @@ if __name__ == "__main__":
 
     # Save the unlearned model
     # output_path = args.output_path
-    output_path = "unlearnt_models/resnet50_cifar10_unlearnt.pth"
+    output_path = "../unlearnt_models/resnet50_cifar10_unlearnt.pth"
     unlearner.save_model(output_path)

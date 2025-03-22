@@ -4,9 +4,19 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser(description="Can Vision Models Forget")
 
-    parser.add_argument('--model', type=str, default='resnet50')
-    parser.add_argument('--train', action='store_true', help="Train the model if set", default=True)
+    # General parameters
+    parser.add_argument('--model', type=str, default='resnet50', help='Model name', choices=['resnet50'])
+    parser.add_argument('--train_clean', action='store_true', help="Train the model if set")
+    parser.add_argument('--train_poisoned', action='store_true', help="Train the poisoned model if set")
     parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'imagenet'])
+
+    # Unlearing general parameters
+    parser.add_argument('--unlearn_mode', type=str, default=None, choices=['class', 'confuse'],
+                    help='Unlearning mode: class, confuse (flip A/B), subset')
+    parser.add_argument('--forget_class', type=int, default=0, help='Class to unlearn if mode=class')
+    parser.add_argument('--class_a', type=int, help='Class A to confuse', default=0)
+    parser.add_argument('--class_b', type=int, help='Class B to confuse', default=1)
+    parser.add_argument('--df_size', type=float, default=0.5, help='Fraction (0 to 1) controlling number of flipped/confused/subset samples to unlearn')
 
     # Training parameters
     parser.add_argument(
@@ -55,23 +65,14 @@ def get_args():
         help="Number of epochs to wait before early stopping",
     )
     
-    parser.add_argument(
-        "--gold_standard_class",
-        type=int,
-        default=None,
-        help="Only for getting the gold standard unlearnt model"
-    )
-
-    # Unlearning-specific parameters
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        default="models/resnet50_cifar10.pth",
-        help="Path to the trained model",
-    )
     # parser.add_argument(
-    #     "--forget_ratio", type=float, default=0.1, help="Ratio of data to forget (0-1)"
+    #     "--gold_standard_class",
+    #     type=int,
+    #     default=None,
+    #     help="Only for getting the gold standard unlearnt model"
     # )
+
+    # Unlearning parameters
     parser.add_argument(
         "--unlearn_batch_size", type=int, default=32, help="Batch size for unlearning"
     )
@@ -95,15 +96,6 @@ def get_args():
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
-    )
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        default="models/unlearned_model.pth",
-        help="Path to save the unlearned model",
-    )
-    parser.add_argument(
-        "--forget_class", type=int, default=0, help="Index of the forget class"
     )
 
     args = parser.parse_args()
