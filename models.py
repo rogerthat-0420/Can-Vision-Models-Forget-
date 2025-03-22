@@ -1,7 +1,6 @@
 import torch.nn as nn
 from torchvision.models import resnet50
 
-
 class ResNet50(nn.Module):
     def __init__(self, num_classes=10):
         super(ResNet50, self).__init__()
@@ -10,3 +9,9 @@ class ResNet50(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+def get_model(name, num_classes):
+    if name == 'resnet50':
+        return ResNet50(num_classes)
+    else:
+        raise NotImplementedError(f"Model {name} is not implemented.")

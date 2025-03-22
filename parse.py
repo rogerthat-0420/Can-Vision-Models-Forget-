@@ -4,6 +4,10 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser(description="Can Vision Models Forget")
 
+    parser.add_argument('--model', type=str, default='resnet50')
+    parser.add_argument('--train', action='store_true', help="Train the model if set", default=True)
+    parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'imagenet'])
+
     # Training parameters
     parser.add_argument(
         "--og_batch_size",
