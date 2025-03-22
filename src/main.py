@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 from tqdm import tqdm
-from parse import get_args
-from models import get_model
-from utils import load_dataset, train, evaluate
-from evaluate import evaluate_model
+from src.parse import get_args
+from src.models import get_model
+from src.utils import load_dataset, train, evaluate
+from src.evaluate import evaluate_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

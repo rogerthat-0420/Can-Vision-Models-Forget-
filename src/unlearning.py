@@ -8,8 +8,8 @@ import numpy as np
 from tqdm import tqdm
 import os
 import random
-import parse
-from models import *
+import src.parse as parse
+from src.models import *
 import argparse
 import copy
 

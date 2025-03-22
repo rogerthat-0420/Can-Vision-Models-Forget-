@@ -9,7 +9,7 @@ import modelopt.torch.quantization as mtq
 import modelopt.torch.opt as mto
 import torch_tensorrt as torchtrt
 
-from models import ResNet50
+from src.models import ResNet50
 
 def load_resnet_model(model_path):
     model = ResNet50()
