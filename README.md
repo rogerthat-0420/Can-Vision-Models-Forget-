@@ -2,4 +2,4 @@
 
 ## How to run:
 
-![params](image.png)
+![params](imgs/image.png)
