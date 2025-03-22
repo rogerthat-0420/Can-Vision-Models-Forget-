@@ -39,6 +39,32 @@ def train_clean(model, train_loader, test_loader, optimizer, criterion, device):
 
     return model
 
+def train_poison(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device):
+    epochs_no_improve = 0
+    best_loss = float('inf')
+    for epoch in range(1, args.og_epochs + 1):
+        print(f"Epoch {epoch}/{args.og_epochs}")
+        train_loss, train_acc = train(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
+        metrics = evaluate_model(poisoned_model, poisoned_test_loader)
+        tst_loss = metrics['loss']
+        tst_acc = metrics['accuracy']
+        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
+
+        if tst_loss < best_loss:
+            best_loss = tst_loss
+            epochs_no_improve = 0
+            os.makedirs('../models', exist_ok=True)
+            torch.save(poisoned_model.state_dict(), f'../models/poisoned_{args.model}_{args.dataset}.pth')
+        else:
+            epochs_no_improve += 1
+
+        # Early stopping
+        if epochs_no_improve >= args.early_stopping_patience:
+            print(f"Early stopping triggered after {epoch} epochs.")
+            break
+
+    return poisoned_model
+
 if __name__ == '__main__':
 
     args = get_args()
@@ -85,28 +111,7 @@ if __name__ == '__main__':
         print(f"Confusing classes {args.class_a} and {args.class_b}")
         if args.train_poisoned:
             print("==== Training Model on Poisoned Dataset ====")
-            epochs_no_improve = 0
-            best_loss = float('inf')
-            for epoch in range(1, args.og_epochs + 1):
-                print(f"Epoch {epoch}/{args.og_epochs}")
-                train_loss, train_acc = train(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
-                metrics = evaluate_model(poisoned_model, poisoned_test_loader)
-                tst_loss = metrics['loss']
-                tst_acc = metrics['accuracy']
-                print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
-
-                if tst_loss < best_loss:
-                    best_loss = tst_loss
-                    epochs_no_improve = 0
-                    os.makedirs('../models', exist_ok=True)
-                    torch.save(poisoned_model.state_dict(), f'../models/poisoned_{args.model}_{args.dataset}.pth')
-                else:
-                    epochs_no_improve += 1
-
-                # Early stopping
-                if epochs_no_improve >= args.early_stopping_patience:
-                    print(f"Early stopping triggered after {epoch} epochs.")
-                    break
+            poisoned_model = train_poison(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
 
         else:
             print("==== Loading Original Poisoned Model ====")
