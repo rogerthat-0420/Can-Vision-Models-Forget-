@@ -57,8 +57,8 @@ class PotionUnlearner:
                     retain_images, retain_labels = next(retain_iter)
                 self.train_step(retain_images, retain_labels, forget=False)
 
-            forget_metrics = evaluate_model(self.model, forget_loader)
-            retain_metrics = evaluate_model(self.model, retain_loader)
+            forget_metrics = evaluate_model(self.args, self.model, forget_loader)
+            retain_metrics = evaluate_model(self.args, self.model, retain_loader)
 
             forget_acc = forget_metrics['accuracy'] / 100
             retain_acc = retain_metrics['accuracy'] / 100

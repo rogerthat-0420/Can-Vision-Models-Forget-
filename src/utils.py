@@ -51,7 +51,7 @@ def load_dataset(args, device):
     #     test_dataset = Subset(test_dataset, [i for i, (_, label) in enumerate(test_dataset) if label != gold_class])
     #     print(f"Removed class {gold_class}: Train size={len(train_dataset)}, Test size={len(test_dataset)}")
 
-    train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4, generator = torch.Generator().manual_seed(args.seed))
     test_loader = DataLoader(test_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
     
     return train_loader, test_loader, num_classes, train_dataset, test_dataset

@@ -13,16 +13,16 @@ from unlearn import PotionUnlearner
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def train_clean(model, train_loader, test_loader, optimizer, criterion, device):
+def train_clean(args, model, train_loader, test_loader, optimizer, criterion, device):
     epochs_no_improve = 0
     best_loss = float('inf')
     for epoch in range(1, args.og_epochs + 1):
         print(f"Epoch {epoch}/{args.og_epochs}")
         train_loss, train_acc = train(model, train_loader, optimizer, criterion, device)
-        metrics = evaluate_model(model, test_loader)
+        metrics = evaluate_model(args, model, test_loader)
         tst_loss = metrics['loss']
         tst_acc = metrics['accuracy']
-        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
+        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
 
         if tst_loss < best_loss:
             best_loss = tst_loss
@@ -39,16 +39,16 @@ def train_clean(model, train_loader, test_loader, optimizer, criterion, device):
 
     return model
 
-def train_poison(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device):
+def train_poison(args, poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device):
     epochs_no_improve = 0
     best_loss = float('inf')
     for epoch in range(1, args.og_epochs + 1):
         print(f"Epoch {epoch}/{args.og_epochs}")
         train_loss, train_acc = train(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
-        metrics = evaluate_model(poisoned_model, poisoned_test_loader)
+        metrics = evaluate_model(args, poisoned_model, poisoned_test_loader)
         tst_loss = metrics['loss']
         tst_acc = metrics['accuracy']
-        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
+        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
 
         if tst_loss < best_loss:
             best_loss = tst_loss
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     if args.train_clean:
         print("==== Training Original Model on Clean Dataset ====")
-        clean_model = train_clean(clean_model, train_loader, test_loader, optimizer, criterion, device)
+        clean_model = train_clean(args, clean_model, train_loader, test_loader, optimizer, criterion, device)
 
     else:
         print("==== Loading Original Model ====")
@@ -87,6 +87,8 @@ if __name__ == '__main__':
 
     metrics = evaluate_model(args, clean_model, test_loader)
     print(f"OG Evaluation: {metrics}")
+
+    # exit()
 
     # POISONING PIPELINE
 
@@ -111,18 +113,18 @@ if __name__ == '__main__':
         print(f"Confusing classes {args.class_a} and {args.class_b}")
         if args.train_poisoned:
             print("==== Training Model on Poisoned Dataset ====")
-            poisoned_model = train_poison(poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
+            poisoned_model = train_poison(args, poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device)
 
         else:
             print("==== Loading Original Poisoned Model ====")
             poisoned_model.load_state_dict(torch.load(f'../models/poisoned_{args.model}_{args.dataset}.pth', map_location=device))
 
         print('OG Poisoned Evaluation')
-        forget_metrics = evaluate_model(poisoned_model, forget_loader)
-        retain_metrics = evaluate_model(poisoned_model, retain_loader)
-        test_metrics = evaluate_model(poisoned_model, unlearning_poisoned_test_loader)
-        test_forget_metrics = evaluate_model(poisoned_model, test_forget_loader)
-        test_retain_metrics = evaluate_model(poisoned_model, test_retain_loader)
+        forget_metrics = evaluate_model(args, poisoned_model, forget_loader)
+        retain_metrics = evaluate_model(args, poisoned_model, retain_loader)
+        test_metrics = evaluate_model(args, poisoned_model, unlearning_poisoned_test_loader)
+        test_forget_metrics = evaluate_model(args, poisoned_model, test_forget_loader)
+        test_retain_metrics = evaluate_model(args, poisoned_model, test_retain_loader)
         print(f"Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}")
         print(f"Retain Set - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}")
         print(f"Test Forget Set - Acc: {test_forget_metrics['accuracy']:.2f}%, Loss: {test_forget_metrics['loss']:.4f}")
@@ -140,10 +142,10 @@ if __name__ == '__main__':
     unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
 
     # Final evaluation after unlearning
-    forget_metrics = evaluate_model(unlearnt_model, forget_loader)
-    retain_metrics = evaluate_model(unlearnt_model, retain_loader)
-    test_forget_metrics = evaluate_model(poisoned_model, test_forget_loader)
-    test_retain_metrics = evaluate_model(poisoned_model, test_retain_loader)
+    forget_metrics = evaluate_model(args, unlearnt_model, forget_loader)
+    retain_metrics = evaluate_model(args, unlearnt_model, retain_loader)
+    test_forget_metrics = evaluate_model(args, poisoned_model, test_forget_loader)
+    test_retain_metrics = evaluate_model(args, poisoned_model, test_retain_loader)
     print(f"Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}")
     print(f"Retain Set - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}")
     print(f"Test Forget Set - Acc: {test_forget_metrics['accuracy']:.2f}%, Loss: {test_forget_metrics['loss']:.4f}")
