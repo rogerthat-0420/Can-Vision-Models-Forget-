@@ -8,7 +8,7 @@ def get_args():
     parser.add_argument('--model', type=str, default='resnet50', help='Model name', choices=['resnet50'])
     parser.add_argument('--train_clean', action='store_true', help="Train the model if set")
     parser.add_argument('--train_poisoned', action='store_true', help="Train the poisoned model if set")
-    parser.add_argument('--dataset', type=str, default='cifar10', choices=['cifar10', 'cifar100', 'imagenet'])
+    parser.add_argument('--dataset', type=str, default='cifar100', choices=['cifar10', 'cifar100', 'imagenet'])
 
     # Unlearing general parameters
     parser.add_argument('--unlearn_mode', type=str, default=None, choices=['class', 'confuse'],
@@ -96,7 +96,13 @@ def get_args():
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
+    )  
+    parser.add_argument(
+        "--skip_training", type=int, default=0, help="Skip initial model training"
     )
+    parser.add_argument(
+        "--skip_poisoning", type=int, default=0, help="Skip initial model training"
+    )  
 
     args = parser.parse_args()
     return args

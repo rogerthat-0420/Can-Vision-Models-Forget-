@@ -98,7 +98,7 @@ class PotionUnlearner:
     def save_model(self, path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save(self.model.state_dict(), path)
-        print(f"✅ Unlearned model saved to {path}")
+        print(f"Unlearned model saved to {path}")
 
 class FlexibleUnlearner:
     def __init__(self, args, model, forget_method="GA", retain_method=None):
@@ -306,7 +306,7 @@ class FlexibleUnlearner:
         """Save the unlearned model to disk."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save(self.model.state_dict(), path)
-        print(f"✅ Unlearned model saved to {path}")
+        print(f"Unlearned model saved to {path}")
 
 
 # Helper function for model evaluation
@@ -336,7 +336,6 @@ def evaluate_model(args, model, data_loader):
     avg_loss = total_loss / total_samples
 
     return {"accuracy": accuracy, "loss": avg_loss}
-
 
 # Example usage:
 """

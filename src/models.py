@@ -16,8 +16,13 @@ class ResNet50(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+class ViT(nn.Module):
+    pass
+
 def get_model(name, num_classes):
     if name == 'resnet50':
         return ResNet50(num_classes)
+    elif name == 'vit':
+        return ViT(num_classes)
     else:
         raise NotImplementedError(f"Model {name} is not implemented.")
