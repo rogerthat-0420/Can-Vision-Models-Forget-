@@ -10,9 +10,16 @@ import modelopt.torch.opt as mto
 import torch_tensorrt as torchtrt
 
 from src.models import ResNet50
+from src.models import ViT
 
 def load_resnet_model(model_path):
     model = ResNet50()
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    model.eval()
+    return model
+
+def load_vit_model(model_path):
+    model = ViT()
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
     return model
@@ -25,6 +32,16 @@ def get_cifar10_subset():
     dataset = datasets.CIFAR10(root="./data", train=True, download=True, transform=transform)
     return DataLoader(torch.utils.data.Subset(dataset, range(256)), batch_size=2)
 
+def get_cifar100_subset():
+    transform = transforms.Compose([transforms.Resize([args.image_size, args.image_size]),
+                                            transforms.RandomCrop(args.image_size, padding=4), 
+                                            transforms.RandomHorizontalFlip(),
+                                            transforms.RandAugment(),  # RandAugment augmentation for strong regularization
+                                            transforms.ToTensor(), 
+                                            transforms.Normalize([0.5071, 0.4867, 0.4408], [0.2675, 0.2565, 0.2761])])
+    dataset = datasets.CIFAR100(root='../data', train=True, download=True, transform=transform)
+    return DataLoader(torch.utils.data.Subset(dataset, range(256)), batch_size=2)
+    
 def calculate_model_sizes(model):
     param_size = 0
     for param in model.parameters():
@@ -87,13 +104,15 @@ def apply_static_quantization(model, dataloader):
 #     return tq.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
 
 def main(model_path, output_path, quant_type, quant_size):
-    model = load_resnet_model(model_path)
+    model = load_vit_model(model_path)
     
     if quant_type == "static":
-        data_loader = get_cifar10_subset()
+        # data_loader = get_cifar10_subset()
+        data_loader = get_cifar100_subset()
         model = apply_static_quantization(model, data_loader)
     elif quant_type == 'ptq':
-        data_loader = get_cifar10_subset()
+        # data_loader = get_cifar10_subset()
+        data_loader = get_cifar100_subset()
         model = apply_ptq(model, data_loader, quant_size)
     # else:
     #     model = apply_dynamic_quantization(model)

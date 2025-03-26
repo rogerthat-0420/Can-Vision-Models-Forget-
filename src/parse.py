@@ -5,7 +5,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Can Vision Models Forget")
 
     # General parameters
-    parser.add_argument('--model', type=str, default='resnet50', help='Model name', choices=['resnet50'])
+    parser.add_argument('--model', type=str, default='resnet50', help='Model name', choices=['resnet50', 'ViT'])
     parser.add_argument('--train_clean', action='store_true', help="Train the model if set")
     parser.add_argument('--train_poisoned', action='store_true', help="Train the poisoned model if set")
     parser.add_argument('--dataset', type=str, default='cifar100', choices=['cifar10', 'cifar100', 'imagenet'])
@@ -104,5 +104,16 @@ def get_args():
         "--skip_poisoning", type=int, default=0, help="Skip initial model training"
     )  
 
+    #ViT parameters
+    parser.add_argument("--embed_dim", type=int, default=128, help='dimensionality of the latent space')
+    parser.add_argument("--n_attention_heads", type=int, default=4, help='number of heads to use in Multi-head attention')
+    parser.add_argument("--forward_mul", type=int, default=2, help='forward multiplier')
+    parser.add_argument("--n_layers", type=int, default=6, help='number of encoder layers')
+    parser.add_argument("--dropout", type=float, default=0.1, help='dropout value')
+    parser.add_argument("--image_size", type=int, default=32, help='image size')
+    parser.add_argument("--patch_size", type=int, default=4, help='patch Size')
+    parser.add_argument('--vit_lr', type=int, default=5e-4, help='number of epochs to warmup learning rate')
+    parser.add_argument('--warmup_epochs', type=int, default=10, help='number of epochs to warmup learning rate')
+    parser.add_argument("--n_channels", type=int, default=3, help='number of channels')
     args = parser.parse_args()
     return args
