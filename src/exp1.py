@@ -132,6 +132,9 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(clean_model.parameters(), lr=args.og_learning_rate, weight_decay=args.og_weight_decay)
 
+    n_parameters = sum(p.numel() for p in clean_model.parameters() if p.requires_grad)
+    print(f"Number of trainable parameters in the model: {n_parameters}")
+
     # TRAINING PIPELINE
     if args.train_clean:
         print("==== Training Original Model on Clean Dataset ====")
@@ -147,8 +150,6 @@ if __name__ == '__main__':
 
     metrics = evaluate_model(clean_model, test_loader, device)
     print(f"OG Evaluation: {metrics}")
-
-    exit()
 
     # create the forget and retain loaders
     forget_idx, retain_idx, poisoned_train_dataset, poisoned_test_dataset, test_forget_idx, test_retain_idx = poison_dataset(args, train_dataset, test_dataset)

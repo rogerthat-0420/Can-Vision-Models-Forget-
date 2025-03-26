@@ -105,10 +105,10 @@ def get_args():
     )  
 
     #ViT parameters
-    parser.add_argument("--embed_dim", type=int, default=128, help='dimensionality of the latent space')
-    parser.add_argument("--n_attention_heads", type=int, default=4, help='number of heads to use in Multi-head attention')
-    parser.add_argument("--forward_mul", type=int, default=2, help='forward multiplier')
-    parser.add_argument("--n_layers", type=int, default=6, help='number of encoder layers')
+    parser.add_argument("--embed_dim", type=int, default=768, help='dimensionality of the latent space')
+    parser.add_argument("--n_attention_heads", type=int, default=12, help='number of heads to use in Multi-head attention')
+    parser.add_argument("--forward_mul", type=int, default=4, help='forward multiplier')
+    parser.add_argument("--n_layers", type=int, default=12, help='number of encoder layers')
     parser.add_argument("--dropout", type=float, default=0.1, help='dropout value')
     parser.add_argument("--image_size", type=int, default=32, help='image size')
     parser.add_argument("--patch_size", type=int, default=4, help='patch Size')
