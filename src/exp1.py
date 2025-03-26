@@ -316,7 +316,7 @@ if __name__ == "__main__":
                 retain_method=retain_method,
             )
             unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
-            model_name = f"unlearned_model_{forget_method}_{retain_method}"
+            model_name = f"unlearnt_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
             unlearner.save_model(f"../models/{model_name}")
 
             print(
