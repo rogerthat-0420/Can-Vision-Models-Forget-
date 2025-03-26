@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import random_split, DataLoader, Subset
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from tqdm import tqdm
@@ -22,23 +22,33 @@ def load_dataset(args, device):
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
+    # transform = transforms.Compose([
+    #     transforms.Resize((224, 224)),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize((0.4914, 0.4822, 0.4465), 
+    #                          (0.2023, 0.1994, 0.2010))
+    # ])
+    
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.RandomHorizontalFlip(p=0.2),  # Randomly flip the image with a 20% probability
+        transforms.RandomRotation(15),  # Rotate by ±15 degrees
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),  # Randomly crop and resize
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # Color variations
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), 
-                             (0.2023, 0.1994, 0.2010))
+                            (0.2023, 0.1994, 0.2010))
     ])
 
     if args.dataset == 'cifar10':
-        train_dataset = datasets.CIFAR10(root='../data', train=True, download=True, transform=transform)
+        dataset = datasets.CIFAR10(root='../data', train=True, download=True, transform=transform)
         test_dataset = datasets.CIFAR10(root='../data', train=False, download=True, transform=transform)
         num_classes = 10
     elif args.dataset == 'cifar100':
-        train_dataset = datasets.CIFAR100(root='../data', train=True, download=True, transform=transform)
+        dataset = datasets.CIFAR100(root='../data', train=True, download=True, transform=transform)
         test_dataset = datasets.CIFAR100(root='../data', train=False, download=True, transform=transform)
         num_classes = 100
     elif args.dataset == 'imagenet':
-        train_dataset = datasets.ImageNet(root='../data/imagenet', split='train', download=False, transform=transform)
+        dataset = datasets.ImageNet(root='../data/imagenet', split='train', download=False, transform=transform)
         test_dataset = datasets.ImageNet(root='../data/imagenet', split='val', download=False, transform=transform)
         num_classes = 1000
     else:
@@ -50,11 +60,18 @@ def load_dataset(args, device):
     #     train_dataset = Subset(train_dataset, [i for i, (_, label) in enumerate(train_dataset) if label != gold_class])
     #     test_dataset = Subset(test_dataset, [i for i, (_, label) in enumerate(test_dataset) if label != gold_class])
     #     print(f"Removed class {gold_class}: Train size={len(train_dataset)}, Test size={len(test_dataset)}")
+    
+    val_ratio = 0.1
+    train_size = int((1 - val_ratio) * len(dataset))
+    val_size = len(dataset) - train_size
+    
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(args.seed))
 
-    train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4, generator = torch.Generator().manual_seed(args.seed))
+    train_loader = DataLoader(train_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4, generator=torch.Generator().manual_seed(args.seed))
+    val_loader = DataLoader(val_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=args.og_batch_size, shuffle=False, num_workers=4)
     
-    return train_loader, test_loader, num_classes, train_dataset, test_dataset
+    return train_loader, val_loader, test_loader, num_classes, train_dataset, val_dataset, test_dataset
 
 def train(model, train_loader, optimizer, criterion, device):
     model.train()
@@ -69,7 +86,7 @@ def train(model, train_loader, optimizer, criterion, device):
         optimizer.step()
 
         total_loss += loss.item()
-        correct += (outputs.argmax(1) == labels).sum().item()
+        correct += (outputs.argmax(dim=1) == labels).sum().item()
         total_samples += labels.size(0)
 
     return total_loss / len(train_loader), correct / total_samples

@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument(
         "--og_learning_rate",
         type=float,
-        default=0.01,
+        default=0.001,
         help="Initial learning rate for og model",
     )
     parser.add_argument(

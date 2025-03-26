@@ -7,9 +7,7 @@ from sklearn import linear_model, model_selection
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate_model(args, model, dataloader):
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+def evaluate_model(model, dataloader, device):
 
     criterion = nn.CrossEntropyLoss()
     model.to(device)
@@ -26,8 +24,8 @@ def evaluate_model(args, model, dataloader):
             total_loss += loss.item()
 
             preds = outputs.argmax(dim=1)
-            all_targets.extend(targets.cpu().numpy())
-            all_preds.extend(preds.cpu().numpy())
+            all_targets.extend(targets.detach().cpu().numpy())
+            all_preds.extend(preds.detach().cpu().numpy())
 
     accuracy = accuracy_score(all_targets, all_preds) * 100
     precision = precision_score(all_targets, all_preds, average='weighted', zero_division=0)

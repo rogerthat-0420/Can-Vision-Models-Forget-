@@ -11,21 +11,22 @@ from utils import load_dataset, train, poison_dataset
 from evaluate import evaluate_model
 from unlearn import PotionUnlearner
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def train_clean(args, model, train_loader, test_loader, optimizer, criterion, device):
+def train_clean(args, model, train_loader, val_loader, test_loader, optimizer, criterion, device):
     epochs_no_improve = 0
     best_loss = float('inf')
     for epoch in range(1, args.og_epochs + 1):
         print(f"Epoch {epoch}/{args.og_epochs}")
         train_loss, train_acc = train(model, train_loader, optimizer, criterion, device)
-        metrics = evaluate_model(args, model, test_loader)
-        tst_loss = metrics['loss']
-        tst_acc = metrics['accuracy']
-        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}')
+        val_metrics = evaluate_model(model, val_loader, device)
+        val_loss = val_metrics['loss']
+        val_acc = val_metrics['accuracy']
+        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}')
 
-        if tst_loss < best_loss:
-            best_loss = tst_loss
+        if val_loss < best_loss:
+            best_loss = val_loss
             epochs_no_improve = 0
             os.makedirs('../models', exist_ok=True)
             torch.save(model.state_dict(), f'../models/clean_{args.model}_{args.dataset}.pth')
@@ -36,6 +37,9 @@ def train_clean(args, model, train_loader, test_loader, optimizer, criterion, de
         if epochs_no_improve >= args.early_stopping_patience:
             print(f"Early stopping triggered after {epoch} epochs.")
             break
+    
+    test_metrics = evaluate_model(model, test_loader, device)
+    print(f"Final Test Evaluation: {test_metrics}")
 
     return model
 
@@ -70,7 +74,8 @@ if __name__ == '__main__':
     args = get_args()
     torch.manual_seed(args.seed)
 
-    train_loader, test_loader, num_classes, train_dataset, test_dataset = load_dataset(args, device)
+    train_loader, val_loader, test_loader, num_classes, train_dataset, val_dataset, test_dataset = load_dataset(args, device)
+    print(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}, Test size={len(test_dataset)}")
     clean_model = get_model(args.model, num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(clean_model.parameters(), lr=args.og_learning_rate, weight_decay=args.og_weight_decay)
@@ -79,16 +84,16 @@ if __name__ == '__main__':
 
     if args.train_clean:
         print("==== Training Original Model on Clean Dataset ====")
-        clean_model = train_clean(args, clean_model, train_loader, test_loader, optimizer, criterion, device)
+        clean_model = train_clean(args, clean_model, train_loader, val_loader, test_loader, optimizer, criterion, device)
 
     else:
         print("==== Loading Original Model ====")
         clean_model.load_state_dict(torch.load(f'../models/clean_{args.model}_{args.dataset}.pth', map_location=device))
 
-    metrics = evaluate_model(args, clean_model, test_loader)
+    metrics = evaluate_model(clean_model, test_loader, device)
     print(f"OG Evaluation: {metrics}")
 
-    # exit()
+    exit(0)
 
     # POISONING PIPELINE
 
