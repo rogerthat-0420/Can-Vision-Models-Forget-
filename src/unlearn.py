@@ -6,7 +6,7 @@ from tqdm import tqdm
 import os
 import numpy as np
 from evaluate import evaluate_model  # Importing your global evaluator
-
+from models import ResNet50
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -100,6 +100,7 @@ class PotionUnlearner:
         torch.save(self.model.state_dict(), path)
         print(f"Unlearned model saved to {path}")
 
+
 class FlexibleUnlearner:
     def __init__(self, args, model, forget_method="GA", retain_method=None):
         """
@@ -117,12 +118,16 @@ class FlexibleUnlearner:
 
         # Store a copy of the original model if using KLR
         if retain_method == "KLR":
-            self.original_model = type(model)(
-                **(vars(model) if hasattr(model, "__dict__") else {})
-            )
+            # self.original_model = type(model)(
+            #     **(vars(model) if hasattr(model, "__dict__") else {})
+            # )
+            # self.original_model.load_state_dict(model.state_dict())
+            # self.original_model.to(device)
+            # self.original_model.eval()  # Set to evaluation mode
+            self.original_model = ResNet50(num_classes=model.model.fc.out_features)
             self.original_model.load_state_dict(model.state_dict())
             self.original_model.to(device)
-            self.original_model.eval()  # Set to evaluation mode
+            self.original_model.eval() 
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.AdamW(
@@ -336,6 +341,7 @@ def evaluate_model(args, model, data_loader):
     avg_loss = total_loss / total_samples
 
     return {"accuracy": accuracy, "loss": avg_loss}
+
 
 # Example usage:
 """
