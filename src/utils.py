@@ -79,13 +79,13 @@ def load_dataset(args, device):
     else:
         raise ValueError(f"Dataset {args.dataset} not supported")
 
-    #####
-    _, dataset = random_split(dataset, [0.999, 0.001])
-    _, test_dataset = random_split(
-        test_dataset,
-        [0.99, 0.01]
-    )
-    #####
+    # ####
+    # _, dataset = random_split(dataset, [0.999, 0.001])
+    # _, test_dataset = random_split(
+    #     test_dataset,
+    #     [0.99, 0.01]
+    # )
+    # ####
     val_ratio = 0.1
     train_size = int((1 - val_ratio) * len(dataset))
     val_size = len(dataset) - train_size

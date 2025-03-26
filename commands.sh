@@ -1,0 +1,1 @@
+python quantization.py --model-path ../models/clean_ViT_cifar100.pth --output-path ../models/ --quant-type ptq --quant-size int8

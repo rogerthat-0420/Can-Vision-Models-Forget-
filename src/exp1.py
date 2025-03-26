@@ -11,7 +11,7 @@ from utils import load_dataset, train, poison_dataset
 from evaluate import evaluate_model
 from unlearn import PotionUnlearner, FlexibleUnlearner
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
