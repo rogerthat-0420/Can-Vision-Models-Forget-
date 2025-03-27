@@ -256,7 +256,10 @@ if __name__ == "__main__":
         num_workers=4,
     )
     poisoned_val_loader = DataLoader(
-        poisoned_val_dataset, batch_size=args.og_batch_size, shuffle=True, num_workers=4
+        poisoned_val_dataset, 
+        batch_size=args.og_batch_size, 
+        shuffle=False, 
+        num_workers=4
     )
     poisoned_test_loader = DataLoader(
         poisoned_test_dataset,
@@ -368,6 +371,7 @@ if __name__ == "__main__":
             test_retain_metrics = evaluate_model(
                 unlearnt_model, test_retain_loader, device
             )
+            test_metrics = evaluate_model(unlearnt_model, poisoned_test_loader, device)
             print(
                 f"Train Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
             )
