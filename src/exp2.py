@@ -110,9 +110,9 @@ if __name__ == "__main__":
         val_dataset,
         test_dataset,
     ) = load_dataset(args, device)
-    print(
-        f"Train size={len(train_dataset)}, Val size={len(val_dataset)}, Test size={len(test_dataset)}"
-    )
+    
+    print(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}, Test size={len(test_dataset)}")
+    
     clean_model = get_model(args.model, num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(
@@ -137,11 +137,7 @@ if __name__ == "__main__":
 
     else:
         print("==== Loading Original Model ====")
-        clean_model.load_state_dict(
-            torch.load(
-                f"../models/clean_{args.model}_{args.dataset}.pth", map_location=device
-            )
-        )
+        clean_model.load_state_dict(torch.load(f"../models/clean_{args.model}_{args.dataset}.pth",map_location=device))
 
     metrics = evaluate_model(clean_model, test_loader, device)
     print(f"OG Evaluation: {metrics}")
@@ -157,15 +153,24 @@ if __name__ == "__main__":
         forget_idx,
         retain_idx,
         poisoned_train_dataset,
+        poisoned_val_dataset,
         poisoned_test_dataset,
+        val_forget_idx,
+        val_retain_idx,
         test_forget_idx,
         test_retain_idx,
-    ) = poison_dataset(args, train_dataset, test_dataset)
+    ) = poison_dataset(args, train_dataset, val_dataset, test_dataset)
 
     poisoned_train_loader = DataLoader(
         poisoned_train_dataset,
         batch_size=args.og_batch_size,
         shuffle=True,
+        num_workers=4,
+    )
+    poisoned_val_loader = DataLoader(
+        poisoned_val_dataset,
+        batch_size=args.og_batch_size,
+        shuffle=False,
         num_workers=4,
     )
     poisoned_test_loader = DataLoader(
@@ -176,22 +181,28 @@ if __name__ == "__main__":
     )
     forget_dataset = Subset(poisoned_train_dataset, forget_idx)
     retain_dataset = Subset(poisoned_train_dataset, retain_idx)
+    val_forget_dataset = Subset(poisoned_val_dataset, val_forget_idx)
+    val_retain_dataset = Subset(poisoned_val_dataset, val_retain_idx)
     test_forget_dataset = Subset(poisoned_test_dataset, test_forget_idx)
     test_retain_dataset = Subset(poisoned_test_dataset, test_retain_idx)
+    
     forget_loader = DataLoader(
         forget_dataset, batch_size=args.unlearn_batch_size, shuffle=True
     )
     retain_loader = DataLoader(
         retain_dataset, batch_size=args.unlearn_batch_size, shuffle=True
     )
+    val_forget_loader = DataLoader(
+        val_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+    )
+    val_retain_loader = DataLoader(
+        val_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+    )
     test_forget_loader = DataLoader(
         test_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
     )
     test_retain_loader = DataLoader(
         test_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
-    )
-    unlearning_poisoned_test_loader = DataLoader(
-        poisoned_test_dataset, batch_size=args.unlearn_batch_size, shuffle=False
     )
 
     # POISONING PIPELINE
@@ -202,6 +213,8 @@ if __name__ == "__main__":
             args,
             poisoned_model,
             poisoned_train_loader,
+            poisoned_val_loader,
+            poisoned_test_loader,
             poisoned_optimizer,
             criterion,
             device,
@@ -217,11 +230,11 @@ if __name__ == "__main__":
         )
 
     print("OG Poisoned Evaluation")
-    forget_metrics = evaluate_model(args, poisoned_model, forget_loader)
-    retain_metrics = evaluate_model(args, poisoned_model, retain_loader)
-    test_metrics = evaluate_model(args, poisoned_model, unlearning_poisoned_test_loader)
-    test_forget_metrics = evaluate_model(args, poisoned_model, test_forget_loader)
-    test_retain_metrics = evaluate_model(args, poisoned_model, test_retain_loader)
+    forget_metrics = evaluate_model(poisoned_model, forget_loader, device)
+    retain_metrics = evaluate_model(poisoned_model, retain_loader, device)
+    test_metrics = evaluate_model(poisoned_model, poisoned_test_loader, device)
+    test_forget_metrics = evaluate_model(poisoned_model, test_forget_loader, device)
+    test_retain_metrics = evaluate_model(poisoned_model, test_retain_loader, device)
     print(
         f"Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
     )
@@ -255,9 +268,9 @@ if __name__ == "__main__":
                 forget_method=forget_method,
                 retain_method=retain_method,
             )
-            unlearned_model = unlearner.run_unlearning(forget_loader, retain_loader)
+            unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
             model_name = f"unlearned_model_{forget_method}_{retain_method}"
-            unlearned.save_model(f"../models/{model_name}")
+            unlearner.save_model(f"../models/{model_name}")
 
             print(
                 "=== forget_method = ",
@@ -266,14 +279,15 @@ if __name__ == "__main__":
                 retain_method,
             )
             # Final evaluation after unlearning
-            forget_metrics = evaluate_model(args, unlearnt_model, forget_loader)
-            retain_metrics = evaluate_model(args, unlearnt_model, retain_loader)
+            forget_metrics = evaluate_model(unlearnt_model, forget_loader, device)
+            retain_metrics = evaluate_model(unlearnt_model, retain_loader, device)
             test_forget_metrics = evaluate_model(
-                args, unlearnt_model, test_forget_loader
+                unlearnt_model, test_forget_loader, device
             )
             test_retain_metrics = evaluate_model(
-                args, unlearnt_model, test_retain_loader
+                unlearnt_model, test_retain_loader, device
             )
+            test_metrics = evaluate_model(unlearnt_model, poisoned_test_loader, device)
             print(
                 f"Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
             )
