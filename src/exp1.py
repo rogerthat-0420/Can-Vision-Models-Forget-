@@ -50,6 +50,7 @@ def train_clean(
 
     return model
 
+
 def train_gold(
     args,
     gold_model,
@@ -90,40 +91,48 @@ def train_gold(
             print(f"Early stopping triggered after {epoch} epochs.")
             break
 
-    test_metrics = evaluate_model(gold_model, test_loader, device)
+    test_metrics = evaluate_model(gold_model, gold_test_loader, device)
     print(f"Final Test Evaluation: {test_metrics}")
     return gold_model
 
-def train_vit(
-        args, 
-        model, 
-        train_loader, 
-        val_loader, 
-        test_loader, 
-        criterion, 
-        device):
+
+def train_vit(args, model, train_loader, val_loader, test_loader, criterion, device):
     # Define optimizer for training the model
     optimizer = optim.AdamW(model.parameters(), lr=args.vit_lr, weight_decay=1e-3)
 
     # scheduler for linear warmup of lr and then cosine decay to 1e-5
-    linear_warmup = optim.lr_scheduler.LinearLR(optimizer, start_factor=1/args.warmup_epochs, end_factor=1.0, total_iters=args.warmup_epochs-1, last_epoch=-1, verbose=True)
-    cos_decay     = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=args.og_epochs-args.warmup_epochs, eta_min=1e-5, verbose=True)
+    linear_warmup = optim.lr_scheduler.LinearLR(
+        optimizer,
+        start_factor=1 / args.warmup_epochs,
+        end_factor=1.0,
+        total_iters=args.warmup_epochs - 1,
+        last_epoch=-1,
+        verbose=True,
+    )
+    cos_decay = optim.lr_scheduler.CosineAnnealingLR(
+        optimizer=optimizer,
+        T_max=args.og_epochs - args.warmup_epochs,
+        eta_min=1e-5,
+        verbose=True,
+    )
 
-    train_losses     = []
-    val_losses      = []
+    train_losses = []
+    val_losses = []
     train_accuracies = []
-    val_accuracies  = []
+    val_accuracies = []
 
-    best_loss = float('inf')
+    best_loss = float("inf")
     epochs_no_improve = 0
 
     for epoch in range(1, args.og_epochs + 1):
 
         train_loss, train_acc = train(model, train_loader, optimizer, criterion, device)
         val_metrics = evaluate_model(model, val_loader, device)
-        val_loss = val_metrics['loss']
-        val_acc = val_metrics['accuracy']
-        print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}')
+        val_loss = val_metrics["loss"]
+        val_acc = val_metrics["accuracy"]
+        print(
+            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}"
+        )
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
@@ -138,8 +147,10 @@ def train_vit(
         if val_loss < best_loss:
             best_loss = val_loss
             epochs_no_improve = 0
-            os.makedirs('../models', exist_ok=True)
-            torch.save(model.state_dict(), f'../models/clean_{args.model}_{args.dataset}.pth')
+            os.makedirs("../models", exist_ok=True)
+            torch.save(
+                model.state_dict(), f"../models/clean_{args.model}_{args.dataset}.pth"
+            )
         else:
             epochs_no_improve += 1
 
@@ -147,11 +158,12 @@ def train_vit(
         if epochs_no_improve >= args.early_stopping_patience:
             print(f"Early stopping triggered after {epoch} epochs.")
             break
-    
+
     test_metrics = evaluate_model(model, test_loader, device)
     print(f"Final Test Evaluation: {test_metrics}")
 
     return model, train_losses, val_losses, train_accuracies, val_accuracies
+
 
 if __name__ == "__main__":
 
@@ -184,14 +196,22 @@ if __name__ == "__main__":
     # TRAINING PIPELINE
     if args.train_clean:
         print("==== Training Original Model on Clean Dataset ====")
-        if(args.model == 'ViT'):
+        if args.model == "ViT":
             (
-                clean_model, 
-                train_losses, 
-                val_losses, 
-                train_accuracies, 
-                val_accuracies
-            ) = train_vit(args, clean_model, train_loader, val_loader, test_loader, criterion, device)
+                clean_model,
+                train_losses,
+                val_losses,
+                train_accuracies,
+                val_accuracies,
+            ) = train_vit(
+                args,
+                clean_model,
+                train_loader,
+                val_loader,
+                test_loader,
+                criterion,
+                device,
+            )
             plot_graphs(train_losses, val_losses, train_accuracies, val_accuracies)
         else:
             clean_model = train_clean(
@@ -212,7 +232,7 @@ if __name__ == "__main__":
                 f"../models/clean_{args.model}_{args.dataset}.pth", map_location=device
             )
         )
-    
+
     metrics = evaluate_model(clean_model, test_loader, device)
     print(f"OG Evaluation: {metrics}")
 
@@ -271,19 +291,32 @@ if __name__ == "__main__":
     )
 
     # GOLD STANDARD
-    print("==== Training Gold Standard Model ====")
-    gold_model = get_model(args.model, num_classes=100, args=args).to(device)
-    gold_model = train_gold(
-        args,
-        gold_model,
-        retain_loader,
-        val_retain_loader,
-        test_retain_loader,
-        optimizer,
-        criterion,
-        device,
+    gold_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
+    gold_optimizer = optim.AdamW(
+        gold_model.parameters(),
+        lr=args.og_learning_rate,
+        weight_decay=args.og_weight_decay,
     )
 
+    if args.train_gold:
+        print("==== Training Gold Standard Model ====")
+        gold_model = train_gold(
+            args,
+            gold_model,
+            retain_loader,
+            val_retain_loader,
+            test_retain_loader,
+            gold_optimizer,
+            criterion,
+            device,
+        )
+    else:
+        print("==== Loading Gold Standard Model ====")
+        gold_model.load_state_dict(
+            torch.load(
+                f"../models/gold_{args.model}_{args.dataset}.pth", map_location=device
+            )
+        )
     gold_train_forget_metrics = evaluate_model(gold_model, forget_loader, device)
     gold_train_retain_metrics = evaluate_model(gold_model, retain_loader, device)
     gold_test_forget_metrics = evaluate_model(gold_model, test_forget_loader, device)
@@ -316,7 +349,7 @@ if __name__ == "__main__":
                 retain_method=retain_method,
             )
             unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
-            model_name = f"unlearnt_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
+            model_name = f"unlearnt_{args.model}_full_class_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
             unlearner.save_model(f"../models/{model_name}")
 
             print(
@@ -347,6 +380,8 @@ if __name__ == "__main__":
             print(
                 f"Test Retain Set - Acc: {test_retain_metrics['accuracy']:.2f}%, Loss: {test_retain_metrics['loss']:.4f}"
             )
-            # print(f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}")
+            # print(
+            #     f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
+            # )
 
     # QUANTIZATION PIPELINE

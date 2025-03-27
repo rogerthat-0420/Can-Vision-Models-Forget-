@@ -7,6 +7,7 @@ import os
 import numpy as np
 from evaluate import evaluate_model  # Importing your global evaluator
 from models import ResNet50
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -127,7 +128,7 @@ class FlexibleUnlearner:
             self.original_model = ResNet50(num_classes=model.model.fc.out_features)
             self.original_model.load_state_dict(model.state_dict())
             self.original_model.to(device)
-            self.original_model.eval() 
+            self.original_model.eval()
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.AdamW(
@@ -302,7 +303,8 @@ class FlexibleUnlearner:
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {epoch} epochs.")
                 break
-
+            if forget_acc <= 1e-3:
+                break
         # Restore best model
         self.model.load_state_dict(best_model_state)
         return self.model

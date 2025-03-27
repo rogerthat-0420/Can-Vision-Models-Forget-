@@ -50,9 +50,16 @@ def train_clean(
 
     return model
 
-
+# this looks fine. 
 def train_poison(
-    args, poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device
+    args, 
+    poisoned_model, 
+    poisoned_train_loader, 
+    poisoned_val_loader, 
+    poisoned_test_loader, 
+    poisoned_optimizer, 
+    criterion, 
+    device
 ):
     epochs_no_improve = 0
     best_loss = float("inf")
@@ -61,15 +68,15 @@ def train_poison(
         train_loss, train_acc = train(
             poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device
         )
-        metrics = evaluate_model(args, poisoned_model, poisoned_test_loader)
-        tst_loss = metrics["loss"]
-        tst_acc = metrics["accuracy"]
+        val_metrics = evaluate_model(poisoned_model, poisoned_val_loader, device)
+        val_loss = val_metrics["loss"]
+        val_acc = val_metrics["accuracy"]
         print(
-            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Test Loss: {tst_loss:.4f}, Test Acc: {tst_acc:.4f}"
+            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}"
         )
 
-        if tst_loss < best_loss:
-            best_loss = tst_loss
+        if val_loss < best_loss:
+            best_loss = val_loss
             epochs_no_improve = 0
             os.makedirs("../models", exist_ok=True)
             torch.save(
@@ -83,7 +90,9 @@ def train_poison(
         if epochs_no_improve >= args.early_stopping_patience:
             print(f"Early stopping triggered after {epoch} epochs.")
             break
-
+    
+    test_metrics = evaluate_model(poisoned_model, poisoned_test_loader, device)
+    print(f"Final Test Evaluation: {test_metrics}")
     return poisoned_model
 
 

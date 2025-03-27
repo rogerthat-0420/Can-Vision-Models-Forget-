@@ -16,7 +16,9 @@ def get_args():
     parser.add_argument('--forget_class', type=int, default=0, help='Class to unlearn if mode=class')
     parser.add_argument('--class_a', type=int, help='Class A to confuse', default=0)
     parser.add_argument('--class_b', type=int, help='Class B to confuse', default=1)
-    parser.add_argument('--df_size', type=float, default=0.5, help='Fraction (0 to 1) controlling number of flipped/confused/subset samples to unlearn')
+    parser.add_argument('--df_size', type=float, default=1, help='Fraction (0 to 1) controlling number of flipped/confused/subset samples to unlearn')
+
+    parser.add_argument('--train_gold', action='store_true', help="Train the gold model if set")
 
     # Training parameters
     parser.add_argument(
