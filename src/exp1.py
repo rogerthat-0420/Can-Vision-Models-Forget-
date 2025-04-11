@@ -8,11 +8,18 @@ from tqdm import tqdm
 from parse import get_args
 from models import get_model
 from utils import load_dataset, train, poison_dataset, plot_graphs
-from evaluate import evaluate_model
+from evaluate import evaluate_model, run_mia
 from unlearn import PotionUnlearner, FlexibleUnlearner
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+from modelopt.torch.quantization.utils import export_torch_mode
+import modelopt.torch.opt as mto
+import torch_tensorrt as torchtrt
+
+from quantization_vit import get_quantized_model
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 
 def train_clean(
@@ -267,6 +274,11 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=4,
     )
+    """
+    For a harder setting of unlearning in this experiment, we take only 5% of the forget dataset for unlearning the class.
+    """
+    num_samples = int(len(forget_idx) * 0.05)
+    partial_forget_dataset = Subset(poisoned_train_dataset, forget_idx[: num_samples])
     forget_dataset = Subset(poisoned_train_dataset, forget_idx)
     retain_dataset = Subset(poisoned_train_dataset, retain_idx)
     val_forget_dataset = Subset(poisoned_val_dataset, val_forget_idx)
@@ -274,24 +286,108 @@ if __name__ == "__main__":
     test_forget_dataset = Subset(poisoned_test_dataset, test_forget_idx)
     test_retain_dataset = Subset(poisoned_test_dataset, test_retain_idx)
 
+    partial_forget_loader = DataLoader(
+        partial_forget_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=True,
+        num_workers=4
+    )
     forget_loader = DataLoader(
-        forget_dataset, batch_size=args.unlearn_batch_size, shuffle=True
+        forget_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=True,
+        num_workers=4
     )
     retain_loader = DataLoader(
-        retain_dataset, batch_size=args.unlearn_batch_size, shuffle=True
+        retain_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=True,
+        num_workers=4
     )
     val_forget_loader = DataLoader(
-        val_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        val_forget_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=False,
+        num_workers=4
     )
     val_retain_loader = DataLoader(
-        val_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        val_retain_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=False,
+        num_workers=4
     )
     test_forget_loader = DataLoader(
-        test_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        test_forget_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=False,
+        num_workers=4
     )
     test_retain_loader = DataLoader(
-        test_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
-    )
+        test_retain_dataset, 
+        batch_size=args.unlearn_batch_size, 
+        shuffle=False, 
+        num_workers=4
+    )   
+    
+    # loading quantized model for resnet50
+    # print("loading quantized model")
+    # quantized_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
+    # mto.restore(quantized_model, "/scratch/aditya.mishra/resnet_50_model/unlearnt_quantized_resnet50_full_class_NPO_KLR_resnet50_cifar100.pth")
+    # compiled_model = torch.compile(quantized_model, backend='tensorrt')
+    # quantized_model.eval()
+
+    # with export_torch_mode():
+    #     print("Quantized model loaded")
+    #     # print("MIA Score of the quantized model: ", run_mia(quantized_model, forget_loader, poisoned_test_loader, device))
+    #     print("Evaluating Train forget set")
+    #     quantized_train_forget_metrics = evaluate_model(quantized_model, forget_loader, device)
+    #     print("Evaluating Train retain set")
+    #     quantized_train_retain_metrics = evaluate_model(quantized_model, retain_loader, device)
+    #     print("Evaluating Test forget set")
+    #     quantized_test_forget_metrics = evaluate_model(quantized_model, test_forget_loader, device)
+    #     print("Evaluating Test retain set")
+    #     quantized_test_retain_metrics = evaluate_model(quantized_model, test_retain_loader, device)
+    #     print("==== Quantized Model ====")
+    #     print(
+    #         f"Train Forget Set - Acc: {quantized_train_forget_metrics['accuracy']:.2f}%, Loss: {quantized_train_forget_metrics['loss']:.4f}"
+    #     )   
+    #     print(
+    #         f"Train Retain Set - Acc: {quantized_train_retain_metrics['accuracy']:.2f}%, Loss: {quantized_train_retain_metrics['loss']:.4f}"
+    #     )
+    #     print(
+    #         f"Test Forget Set - Acc: {quantized_test_forget_metrics['accuracy']:.2f}%, Loss: {quantized_test_forget_metrics['loss']:.4f}"
+    #     )
+    #     print(
+    #         f"Test Retain Set - Acc: {quantized_test_retain_metrics['accuracy']:.2f}%, Loss: {quantized_test_retain_metrics['loss']:.4f}"
+    #     )
+    # exit(0)
+    
+    # quantized_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
+    # quantized_model = get_quantized_model(quantized_model, "../models/unlearnt_vit_full_class_GA_None_vit_cifar100.pth")
+    # print("Quantized model loaded")
+    # print("MIA Score of the quantized model: ", run_mia(quantized_model, forget_loader, poisoned_test_loader, device))
+    # print("Evaluating Train forget set")
+    # quantized_train_forget_metrics = evaluate_model(quantized_model, forget_loader, device)
+    # print("Evaluating Train retain set")
+    # quantized_train_retain_metrics = evaluate_model(quantized_model, retain_loader, device)
+    # print("Evaluating Test forget set")
+    # quantized_test_forget_metrics = evaluate_model(quantized_model, test_forget_loader, device)
+    # print("Evaluating Test retain set")
+    # quantized_test_retain_metrics = evaluate_model(quantized_model, test_retain_loader, device)
+    # print("==== Quantized Model ====")
+    # print(
+    #     f"Train Forget Set - Acc: {quantized_train_forget_metrics['accuracy']:.2f}%, Loss: {quantized_train_forget_metrics['loss']:.4f}"
+    # )   
+    # print(
+    #     f"Train Retain Set - Acc: {quantized_train_retain_metrics['accuracy']:.2f}%, Loss: {quantized_train_retain_metrics['loss']:.4f}"
+    # )
+    # print(
+    #     f"Test Forget Set - Acc: {quantized_test_forget_metrics['accuracy']:.2f}%, Loss: {quantized_test_forget_metrics['loss']:.4f}"
+    # )
+    # print(
+    #     f"Test Retain Set - Acc: {quantized_test_retain_metrics['accuracy']:.2f}%, Loss: {quantized_test_retain_metrics['loss']:.4f}"
+    # )
+    # exit(0)
 
     # GOLD STANDARD
     gold_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
@@ -320,9 +416,13 @@ if __name__ == "__main__":
                 f"../models/gold_{args.model}_{args.dataset}.pth", map_location=device
             )
         )
+    print("Evaluating Train forget set")
     gold_train_forget_metrics = evaluate_model(gold_model, forget_loader, device)
+    print("Evaluating Train retain set")
     gold_train_retain_metrics = evaluate_model(gold_model, retain_loader, device)
+    print("Evaluating Test forget set")
     gold_test_forget_metrics = evaluate_model(gold_model, test_forget_loader, device)
+    print("Evaluating Test retain set")
     gold_test_retain_metrics = evaluate_model(gold_model, test_retain_loader, device)
     print("==== Gold Standard ====")
     print(
@@ -337,6 +437,10 @@ if __name__ == "__main__":
     print(
         f"Test Retain Set - Acc: {gold_test_retain_metrics['accuracy']:.2f}%, Loss: {gold_test_retain_metrics['loss']:.4f}"
     )
+    mia_score = run_mia(gold_model, forget_loader, poisoned_test_loader, device)       
+    print(
+        f"MIA Score of the gold model: {mia_score:.3f}"
+    )  
 
     # UNLEARNING PIPELINE
     print("==== Unlearning ====")
@@ -348,13 +452,14 @@ if __name__ == "__main__":
             unlearner = FlexibleUnlearner(
                 args,
                 clean_model,
+                device,
                 forget_method=forget_method,
                 retain_method=retain_method,
             )
-            unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
+            unlearnt_model = unlearner.run_unlearning(forget_loader, partial_forget_loader, retain_loader, val_forget_loader, val_retain_loader)
             model_name = f"unlearnt_{args.model}_full_class_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
             unlearner.save_model(f"../models/{model_name}")
-
+            print("------------------------------")
             print(
                 "=== forget_method = ",
                 forget_method,
@@ -371,7 +476,7 @@ if __name__ == "__main__":
             test_retain_metrics = evaluate_model(
                 unlearnt_model, test_retain_loader, device
             )
-            test_metrics = evaluate_model(unlearnt_model, poisoned_test_loader, device)
+            mia_score = run_mia(unlearnt_model, forget_loader, poisoned_test_loader, device)            
             print(
                 f"Train Forget Set - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
             )
@@ -383,6 +488,9 @@ if __name__ == "__main__":
             )
             print(
                 f"Test Retain Set - Acc: {test_retain_metrics['accuracy']:.2f}%, Loss: {test_retain_metrics['loss']:.4f}"
+            )
+            print(
+                f"MIA Score: {mia_score:.3f}"
             )
             # print(
             #     f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
