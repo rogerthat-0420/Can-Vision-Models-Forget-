@@ -1,3 +1,7 @@
+# in this setup, our validation for early stopping will only consist of the retain validation set and not the whole validation set. 
+
+
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
