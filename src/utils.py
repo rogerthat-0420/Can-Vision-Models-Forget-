@@ -180,7 +180,7 @@ def load_dataset(args, device):
         raise ValueError(f"Dataset {args.dataset} not supported")
 
     # ####
-    # _, dataset = random_split(dataset, [0.999, 0.001])
+    # _, dataset = random_split(dataset, [0.99, 0.01])
     # _, test_dataset = random_split(
     #     test_dataset,
     #     [0.99, 0.01]
@@ -242,12 +242,14 @@ def poison_dataset(args, train_dataset, val_dataset, test_dataset):
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
-    print("l122")
-    poisoned_labels = [item[1] for item in train_dataset]
-    print("l124")
-    test_labels = [item[1] for item in test_dataset]
-    print("l126")
-    val_labels = [item[1] for item in val_dataset]
+    # faster way to index all targets
+    # earlier we were doing: [item[1] for item in train_dataset]
+    print("Poisoning the dataset")
+    poisoned_labels = torch.tensor(train_dataset.dataset.targets)[train_dataset.indices]
+    print("Poisoning the test dataset")
+    test_labels = torch.tensor(test_dataset.targets)
+    print("poisoning the validation dataset")
+    val_labels = torch.tensor(val_dataset.dataset.targets)[val_dataset.indices]
     
     if args.unlearn_mode == "confuse":
         class_a_idx = [
@@ -293,47 +295,48 @@ def poison_dataset(args, train_dataset, val_dataset, test_dataset):
         ]
     # elif args.unlearn_mode == "class":
     else:
-        print("l168")
-        forget_idx = [
-            i
-            for i, item in enumerate(train_dataset)
-            if item[1] == args.forget_class
-        ]
-        print("l174")
-        retain_idx = [
-            i
-            for i, item in enumerate(train_dataset)
-            if item[1] != args.forget_class
-        ]
-        print("l180")
-        val_forget_idx = [
-            i for i, label in enumerate(val_labels) if label == args.forget_class
-        ]
-        val_retain_idx = [
-            i for i, label in enumerate(val_labels) if label != args.forget_class
-        ]
-        print("l187")
-        test_forget_idx = [
-            i for i, label in enumerate(test_labels) if label == args.forget_class
-        ]
-        test_retain_idx = [
-            i for i, label in enumerate(test_labels) if label != args.forget_class
-        ]
-        print("l194")
+        # forget_idx = [
+        #     i
+        #     for i, item in enumerate(train_dataset)
+        #     if item[1] == args.forget_class
+        # ]
+        print("forgetting class")
+        forget_idx = poisoned_labels == args.forget_class
+        retain_idx = ~forget_idx
+        forget_idx = forget_idx.nonzero().squeeze().tolist()
+        retain_idx = retain_idx.nonzero().squeeze().tolist()
+        
+        val_forget_idx = val_labels == args.forget_class
+        val_retain_idx = ~val_forget_idx
+        
+        val_forget_idx = val_forget_idx.nonzero().squeeze().tolist()
+        val_retain_idx = val_retain_idx.nonzero().squeeze().tolist()
+        
+        test_forget_idx = test_labels == args.forget_class
+        test_retain_idx = ~test_forget_idx
+        test_forget_idx = test_forget_idx.nonzero().squeeze().tolist()
+        test_retain_idx = test_retain_idx.nonzero().squeeze().tolist()
     # else:
     #     raise ValueError("Invalid unlearning mode")
 
+    """ 
+    this below class of PoisonedDataset is necessary only for experiment-2, removing it for now. 
+    """
     # Wrap the dataset with modified labels
-    poisoned_train_dataset = PoisonedDataset(train_dataset, poisoned_labels)
-    poisoned_val_dataset = PoisonedDataset(val_dataset)
-    poison_test_dataset = PoisonedDataset(test_dataset)
+    # print("Wrapping the train dataset with modified labels")
+    # poisoned_train_dataset = PoisonedDataset(train_dataset, poisoned_labels)
+    # print("Wrapping the validation dataset with modified labels")
+    # poisoned_val_dataset = PoisonedDataset(val_dataset)
+    
+    # poison_test_dataset = PoisonedDataset(test_dataset)
+    
 
     return (
         forget_idx,
         retain_idx,
-        poisoned_train_dataset,
-        poisoned_val_dataset,
-        poison_test_dataset,
+        train_dataset,
+        val_dataset,
+        test_dataset,
         val_forget_idx,
         val_retain_idx,
         test_forget_idx,
