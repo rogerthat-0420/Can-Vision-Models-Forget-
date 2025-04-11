@@ -39,7 +39,7 @@ class PotionUnlearner:
     def run_unlearning(self, forget_loader, retain_loader, test_loader=None):
         print(f"Starting Potion Unlearning for {self.args.unlearn_epochs} epochs...")
         best_model_state = self.model.state_dict()
-        patience, epochs_no_improve = 3, 0
+        patience, epochs_no_improve = 5, 0
         best_score = float("-inf")
 
         for epoch in range(1, self.args.unlearn_epochs + 1):
@@ -127,7 +127,7 @@ class FlexibleUnlearner:
             # self.original_model.to(self.device)
             # self.original_model.eval()  # Set to evaluation mode
             if args.model == "resnet50":
-                self.original_model = ResNet50(num_classes=model.model.fc.out_features)
+                self.original_model = ResNet50(num_classes=100)
                 self.original_model.load_state_dict(model.state_dict())
             elif args.model == "vit" or args.model == "ViT":
                 self.original_model = ViTModel(num_classes=100)
@@ -250,7 +250,7 @@ class FlexibleUnlearner:
 
         best_model_state = self.model.state_dict()
         # patience = getattr(self.args, "patience", 3)
-        patience = 3
+        patience = 5
         epochs_no_improve = 0
         best_score = float("-inf")
 

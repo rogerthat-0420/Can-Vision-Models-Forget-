@@ -2,7 +2,12 @@ import time
 import torch
 import argparse
 from models import get_model  # Import the function that returns the model
+from utils import load_dataset, poison_dataset
 from hqq.core.quantize import *
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def measure_inference_time(model, input_tensor, num_iterations=1000):
     input_tensor = input_tensor.to(device)
@@ -82,10 +87,9 @@ def main():
     parser.add_argument("--quantization-level", type=str, choices=["2bit", "4bit", "8bit"], default="4bit", help="Quantization level")
     args = parser.parse_args()
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_classes = 100  # CIFAR-10 has 100 classes
     
-    model = get_model("vit", num_classes, args).to(device)
+    model = get_model("vit", num_classes).to(device)
     input_tensor = torch.randn(1, 3, 224, 224).to(device)
     
     print("Before quantization:")

@@ -1,7 +1,5 @@
 # in this setup, our validation for early stopping will only consist of the retain validation set and not the whole validation set. 
 
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,7 +13,7 @@ from utils import load_dataset, train, poison_dataset
 from evaluate import evaluate_model
 from unlearn import PotionUnlearner, FlexibleUnlearner
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -99,7 +97,6 @@ def train_poison(
     print(f"Final Test Evaluation: {test_metrics}")
     return poisoned_model
 
-
 if __name__ == "__main__":
 
     args = get_args()
@@ -116,7 +113,7 @@ if __name__ == "__main__":
     ) = load_dataset(args, device)
     
     print(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}, Test size={len(test_dataset)}")
-    
+
     clean_model = get_model(args.model, num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(
@@ -141,11 +138,12 @@ if __name__ == "__main__":
 
     else:
         print("==== Loading Original Model ====")
-        clean_model.load_state_dict(torch.load(f"../models/clean_{args.model}_{args.dataset}.pth",map_location=device))
+        clean_model.load_state_dict(torch.load(f"/scratch/sumit.k/models/clean_models/clean_{args.model}_{args.dataset}.pth",map_location=device))
 
     metrics = evaluate_model(clean_model, test_loader, device)
     print(f"OG Evaluation: {metrics}")
 
+    print("==== Poisoning Datset ====")
     poisoned_model = get_model(args.model, num_classes=num_classes).to(device)
     poisoned_optimizer = optim.AdamW(
         poisoned_model.parameters(),
@@ -223,12 +221,16 @@ if __name__ == "__main__":
             criterion,
             device,
         )
+        # Save the poisoned model
+        os.makedirs("/scratch/sumit.k/models/poisoned_models/", exist_ok=True)
+        torch.save(poisoned_model.state_dict(),
+                   f"/scratch/sumit.k/models/poisoned_models/poisoned_{args.model}_{args.dataset}_{args.class_a}_{args.class_b}_{args.df}.pth")
 
     else:
         print("==== Loading Original Poisoned Model ====")
         poisoned_model.load_state_dict(
             torch.load(
-                f"../models/poisoned_{args.model}_{args.dataset}.pth",
+                f"/scratch/sumit.k/models/poisoned_models/poisoned_{args.model}_{args.dataset}.pth",
                 map_location=device,
             )
         )
@@ -254,6 +256,8 @@ if __name__ == "__main__":
     print(
         f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
     )
+
+    exit()
 
     # UNLEARNING PIPELINE
 

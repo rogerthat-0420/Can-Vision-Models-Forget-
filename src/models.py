@@ -103,7 +103,7 @@ class ViT(nn.Module):
         x = self.classifier(x)
         return x
 
-def get_model(name, num_classes, args):
+def get_model(name, num_classes):
     if name == "resnet50":
         return ResNet50(num_classes)
     elif name == "vit" or name == "ViT":

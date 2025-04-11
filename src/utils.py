@@ -93,14 +93,15 @@ def vit_init_weights(m):
 class PoisonedDataset(torch.utils.data.Dataset):
     def __init__(self, base_dataset, poisoned_labels=None):
         self.base_dataset = base_dataset
-        self.poisoned_labels = (
-            poisoned_labels
-            if poisoned_labels is not None
-            else [label for _, label in base_dataset]
-        )
+        self.poisoned_labels = None
+        if poisoned_labels is not None:
+            self.poisoned_labels = poisoned_labels
 
     def __getitem__(self, index):
-        img, _ = self.base_dataset[index]
+        img, label = self.base_dataset[index]
+        if self.poisoned_labels is None:
+            return img, label
+        # If poisoned_labels is provided, use it
         poisoned_label = self.poisoned_labels[index]
         return img, poisoned_label
 
@@ -252,47 +253,34 @@ def poison_dataset(args, train_dataset, val_dataset, test_dataset):
     val_labels = torch.tensor(val_dataset.dataset.targets)[val_dataset.indices]
     
     if args.unlearn_mode == "confuse":
-        class_a_idx = [
-            i for i, item in enumerate(train_dataset) if item[1] == args.class_a
-        ]
-        class_b_idx = [
-            i for i, item in enumerate(train_dataset) if item[1] == args.class_b
-        ]
+        class_a_idx = (poisoned_labels == args.class_a).nonzero().squeeze().tolist()
+        class_b_idx = (poisoned_labels == args.class_b).nonzero().squeeze().tolist()
 
         num_to_flip = int(args.df_size * min(len(class_a_idx), len(class_b_idx)))
         sampled_a = random.sample(class_a_idx, num_to_flip)
         sampled_b = random.sample(class_b_idx, num_to_flip)
 
         # Flip labels in poisoned_labels (mutable)
-        for idx in sampled_a:
-            poisoned_labels[idx] = args.class_b
-        for idx in sampled_b:
-            poisoned_labels[idx] = args.class_a
+        poisoned_labels[sampled_a] = args.class_b
+        poisoned_labels[sampled_b] = args.class_a
 
-        forget_idx = sampled_a + sampled_b
-        retain_idx = [i for i in range(len(train_dataset)) if i not in forget_idx]
+        forget_mask = torch.zeros_like(poisoned_labels, dtype=torch.bool)
+        forget_mask[sampled_a] = True
+        forget_mask[sampled_b] = True
+        forget_idx = forget_mask.nonzero().squeeze().tolist()
+        retain_idx = (~forget_idx).nonzero().squeeze().tolist()
 
-        val_forget_idx = [
-            i
-            for i, label in enumerate(val_labels)
-            if label in [args.class_a, args.class_b]
-        ]
-        val_retain_idx = [
-            i
-            for i, label in enumerate(val_labels)
-            if label not in [args.class_a, args.class_b]
-        ]
+        val_forget_mask = torch.zeros_like(val_labels, dtype=torch.bool)
+        val_forget_mask[val_labels == args.class_a] = True
+        val_forget_mask[val_labels == args.class_b] = True
+        val_forget_idx = val_forget_mask.nonzero().squeeze().tolist()
+        val_retain_idx = (~val_forget_idx).nonzero().squeeze().tolist()
 
-        test_forget_idx = [
-            i
-            for i, label in enumerate(test_labels)
-            if label in [args.class_a, args.class_b]
-        ]
-        test_retain_idx = [
-            i
-            for i, label in enumerate(test_labels)
-            if label not in [args.class_a, args.class_b]
-        ]
+        test_forget_mask = torch.zeros_like(test_labels, dtype=torch.bool)
+        test_forget_mask[test_labels == args.class_a] = True
+        test_forget_mask[test_labels == args.class_b] = True
+        test_forget_idx = test_forget_mask.nonzero().squeeze().tolist()
+        test_retain_idx = (~test_forget_idx).nonzero().squeeze().tolist()
     # elif args.unlearn_mode == "class":
     else:
         # forget_idx = [
@@ -323,20 +311,19 @@ def poison_dataset(args, train_dataset, val_dataset, test_dataset):
     this below class of PoisonedDataset is necessary only for experiment-2, removing it for now. 
     """
     # Wrap the dataset with modified labels
-    # print("Wrapping the train dataset with modified labels")
-    # poisoned_train_dataset = PoisonedDataset(train_dataset, poisoned_labels)
-    # print("Wrapping the validation dataset with modified labels")
-    # poisoned_val_dataset = PoisonedDataset(val_dataset)
-    
-    # poison_test_dataset = PoisonedDataset(test_dataset)
-    
+    print("Wrapping the train dataset with modified labels")
+    poisoned_train_dataset = PoisonedDataset(train_dataset, poisoned_labels)
+    print("Wrapping the validation dataset with modified labels")
+    poisoned_val_dataset = PoisonedDataset(val_dataset)
+    print("Wrapping the test dataset with modified labels")
+    poisoned_test_dataset = PoisonedDataset(test_dataset)
 
     return (
         forget_idx,
         retain_idx,
-        train_dataset,
-        val_dataset,
-        test_dataset,
+        poisoned_train_dataset,
+        poisoned_val_dataset,
+        poisoned_test_dataset,
         val_forget_idx,
         val_retain_idx,
         test_forget_idx,

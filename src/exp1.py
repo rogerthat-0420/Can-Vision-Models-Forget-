@@ -11,9 +11,9 @@ from utils import load_dataset, train, poison_dataset, plot_graphs
 from evaluate import evaluate_model, run_mia
 from unlearn import PotionUnlearner, FlexibleUnlearner
 
-from modelopt.torch.quantization.utils import export_torch_mode
-import modelopt.torch.opt as mto
-import torch_tensorrt as torchtrt
+# from modelopt.torch.quantization.utils import export_torch_mode
+# import modelopt.torch.opt as mto
+# import torch_tensorrt as torchtrt
 
 from quantization_vit import get_quantized_model
 
@@ -176,7 +176,8 @@ if __name__ == "__main__":
 
     args = get_args()
     torch.manual_seed(args.seed)
-
+    print(f"Using {args.model} model for {args.dataset} dataset")
+    print(f"Loading the dataset")
     (
         train_loader,
         val_loader,
@@ -236,7 +237,7 @@ if __name__ == "__main__":
         print("==== Loading Original Model ====")
         clean_model.load_state_dict(
             torch.load(
-                f"../models/clean_{args.model}_{args.dataset}.pth", map_location=device
+                f"/scratch/sumit.k/models/clean_models/clean_{args.model}_{args.dataset}.pth", map_location=device
             )
         )
 
@@ -413,7 +414,7 @@ if __name__ == "__main__":
         print("==== Loading Gold Standard Model ====")
         gold_model.load_state_dict(
             torch.load(
-                f"../models/gold_{args.model}_{args.dataset}.pth", map_location=device
+                f"/scratch/sumit.k/models/gold_models/gold_{args.model}_{args.dataset}.pth", map_location=device
             )
         )
     print("Evaluating Train forget set")
@@ -446,7 +447,7 @@ if __name__ == "__main__":
     print("==== Unlearning ====")
 
     forget_methods = ["GA", "NPO"]
-    retain_methods = [None, "GDR", "KLR"]
+    retain_methods = ["KLR"]
     for forget_method in forget_methods:
         for retain_method in retain_methods:
             unlearner = FlexibleUnlearner(
@@ -456,10 +457,6 @@ if __name__ == "__main__":
                 forget_method=forget_method,
                 retain_method=retain_method,
             )
-            unlearnt_model = unlearner.run_unlearning(forget_loader, partial_forget_loader, retain_loader, val_forget_loader, val_retain_loader)
-            model_name = f"unlearnt_{args.model}_full_class_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
-            unlearner.save_model(f"../models/{model_name}")
-            print("------------------------------")
             print(
                 "=== forget_method = ",
                 forget_method,
@@ -467,7 +464,12 @@ if __name__ == "__main__":
                 retain_method,
                 " ===",
             )
+            unlearnt_model = unlearner.run_unlearning(forget_loader, partial_forget_loader, retain_loader, val_forget_loader, val_retain_loader)
+            model_name = f"unlearnt_{args.model}_full_class_{forget_method}_{retain_method}_{args.model}_{args.dataset}.pth"
+            unlearner.save_model(f"/scratch/sumit.k/models/vit_exp2/{model_name}")
+            print("------------------------------\n")
             # Final evaluation after unlearning
+            print("==== Evaluating Unlearnt Model ====")
             forget_metrics = evaluate_model(unlearnt_model, forget_loader, device)
             retain_metrics = evaluate_model(unlearnt_model, retain_loader, device)
             test_forget_metrics = evaluate_model(
@@ -492,6 +494,7 @@ if __name__ == "__main__":
             print(
                 f"MIA Score: {mia_score:.3f}"
             )
+            print("-------------EVALUATION DONE-----------------\n")
             # print(
             #     f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
             # )
