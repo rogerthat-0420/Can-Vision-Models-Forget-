@@ -9,21 +9,22 @@ import modelopt.torch.quantization as mtq
 import modelopt.torch.opt as mto
 import torch_tensorrt as torchtrt
 
-from src.models import ResNet50
+from models import ResNet50
 
 def load_resnet_model(model_path):
-    model = ResNet50()
+    model = ResNet50(num_classes=100)
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
     return model
 
-def get_cifar10_subset():
+def get_cifar100_subset():
     transform = transforms.Compose([
         transforms.Resize(224),  # ResNet expects 224x224 inputs
         transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
-    dataset = datasets.CIFAR10(root="./data", train=True, download=True, transform=transform)
-    return DataLoader(torch.utils.data.Subset(dataset, range(256)), batch_size=2)
+    dataset = datasets.CIFAR100(root="./data", train=True, download=True, transform=transform)
+    return DataLoader(torch.utils.data.Subset(dataset, range(128)), batch_size=1)
 
 def calculate_model_sizes(model):
     param_size = 0
@@ -72,8 +73,13 @@ def apply_ptq(model, dataloader, quant_size):
         quant_cfg = mtq.INT8_DEFAULT_CFG
     elif quant_size == "fp8":
         quant_cfg = mtq.FP8_DEFAULT_CFG
-        
+
     # print accuracy and loss pre-quantization
+    # The `calibrate_loop` function is used to calibrate the quantization of the model over the
+    # training dataset. It iterates through the provided data loader, computes the loss and accuracy
+    # of the model predictions on the dataset, and prints the batch loss and accuracy during the
+    # calibration process. This function helps in evaluating the performance of the model before
+    # quantization.
     calibrate_loop(model, dataloader)
     # PTQ with in-place replacement to quantized modules
     mtq.quantize(model, quant_cfg, forward_loop=lambda model: calibrate_loop(model, dataloader))
@@ -90,10 +96,10 @@ def main(model_path, output_path, quant_type, quant_size):
     model = load_resnet_model(model_path)
     
     if quant_type == "static":
-        data_loader = get_cifar10_subset()
+        data_loader = get_cifar100_subset()
         model = apply_static_quantization(model, data_loader)
     elif quant_type == 'ptq':
-        data_loader = get_cifar10_subset()
+        data_loader = get_cifar100_subset()
         model = apply_ptq(model, data_loader, quant_size)
     # else:
     #     model = apply_dynamic_quantization(model)
