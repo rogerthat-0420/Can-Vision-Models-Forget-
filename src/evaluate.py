@@ -41,7 +41,7 @@ def evaluate_model(model, dataloader, device):
         'loss': avg_loss
     }
 
-def compute_losses(model, loader, subset=False, subset_size=1000):
+def compute_losses(model, loader, device, subset=False, subset_size=100):
     """Compute per-sample losses"""
     criterion = nn.CrossEntropyLoss(reduction="none")
     model.to(device)
@@ -78,13 +78,16 @@ def compute_losses(model, loader, subset=False, subset_size=1000):
 
 def simple_mia(sample_loss, members, n_splits=10, random_state=0):
     """Membership Inference Attack"""
+    unique_members = np.unique(members)
+    if not np.all(unique_members == np.array([0, 1])):
+        raise ValueError("members should only have 0 and 1s")
     attack_model = linear_model.LogisticRegression()
     cv = model_selection.StratifiedShuffleSplit(n_splits=n_splits, random_state=random_state)
     return model_selection.cross_val_score(attack_model, sample_loss, members, cv=cv, scoring="accuracy")
 
-def run_mia(model, forget_loader, test_loader):
-    forget_losses = compute_losses(model, forget_loader, subset=True)
-    test_losses = compute_losses(model, test_loader, subset=True)
+def run_mia(model, forget_loader, test_loader, device):
+    forget_losses = compute_losses(model, forget_loader, device, subset=True)
+    test_losses = compute_losses(model, test_loader, device, subset=True)
 
     assert len(test_losses) == len(forget_losses), "Mismatch in loss sample sizes"
 
