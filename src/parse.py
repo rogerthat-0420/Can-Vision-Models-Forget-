@@ -76,7 +76,7 @@ def get_args():
 
     # Unlearning parameters
     parser.add_argument(
-        "--unlearn_batch_size", type=int, default=32, help="Batch size for unlearning"
+        "--unlearn_batch_size", type=int, default=16, help="Batch size for unlearning"
     )
     parser.add_argument(
         "--unlearn_lr", type=float, default=0.0001, help="Learning rate for unlearning"
