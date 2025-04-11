@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.init as init
 from torchvision.models import resnet50
 from utils import vit_init_weights, EmbedLayer, Classifier
+from transformers import ViTForImageClassification, ViTConfig
 
 class ResNet50(nn.Module):
     def __init__(self, num_classes=10):
@@ -16,6 +17,28 @@ class ResNet50(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+class ViTModel(nn.Module):
+    def __init__(self, num_classes=100):
+        super(ViTModel, self).__init__()
+        # Configure the ViT model - using a smaller configuration for faster training
+        self.config = ViTConfig(
+            hidden_size=768,            # Smaller hidden size
+            num_hidden_layers=6,        # Fewer layers
+            num_attention_heads=8,      # Fewer attention heads
+            intermediate_size=1536,     # Smaller intermediate size
+            image_size=224,             # ViT expected image size
+            patch_size=16,              # Patch size
+            num_channels=3,             # RGB images
+            num_labels=num_classes      # CIFAR-100 has 100 classes
+        )
+        
+        # Create the ViT model with our configuration
+        self.vit = ViTForImageClassification(self.config)
+    
+    def forward(self, x):
+        outputs = self.vit(x)
+        return outputs.logits
 
 class ViT(nn.Module):
     """
@@ -84,16 +107,6 @@ def get_model(name, num_classes, args):
     if name == "resnet50":
         return ResNet50(num_classes)
     elif name == "vit" or name == "ViT":
-        return ViT(
-            n_channels=args.n_channels,
-            embed_dim=args.embed_dim,
-            n_layers=args.n_layers,
-            n_attention_heads=args.n_attention_heads,
-            forward_mul=args.forward_mul,
-            image_size=args.image_size,
-            patch_size=args.patch_size,
-            n_classes=num_classes,
-            dropout=args.dropout,
-        )
+        return ViTModel(num_classes=num_classes)
     else:
         raise NotImplementedError(f"Model {name} is not implemented.")
