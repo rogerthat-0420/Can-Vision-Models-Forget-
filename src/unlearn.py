@@ -6,7 +6,7 @@ from tqdm import tqdm
 import os
 import numpy as np
 from evaluate import evaluate_model  # Importing your global evaluator
-from models import ResNet50
+from models import ResNet50, ViTModel  # Import your model classes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,8 +65,8 @@ class PotionUnlearner:
                     retain_images, retain_labels = next(retain_iter)
                 self.train_step(retain_images, retain_labels, forget=False)
 
-            forget_metrics = evaluate_model(self.args, self.model, forget_loader)
-            retain_metrics = evaluate_model(self.args, self.model, retain_loader)
+            forget_metrics = evaluate_model(self.model, forget_loader, device)
+            retain_metrics = evaluate_model(self.args, self.model, device)
 
             forget_acc = forget_metrics["accuracy"] / 100
             retain_acc = retain_metrics["accuracy"] / 100
@@ -103,7 +103,7 @@ class PotionUnlearner:
 
 
 class FlexibleUnlearner:
-    def __init__(self, args, model, forget_method="GA", retain_method=None):
+    def __init__(self, args, model, device, forget_method="GA", retain_method=None):
         """
         Initialize the flexible unlearner with specified methods.
 
@@ -114,7 +114,8 @@ class FlexibleUnlearner:
             retain_method: Method for the retain set ('GDR', 'KLR', or None)
         """
         self.args = args
-        self.model = model.to(device)
+        self.device = device
+        self.model = model.to(self.device)
         self.original_model = None  # For KL divergence comparison (if needed)
 
         # Store a copy of the original model if using KLR
@@ -123,11 +124,15 @@ class FlexibleUnlearner:
             #     **(vars(model) if hasattr(model, "__dict__") else {})
             # )
             # self.original_model.load_state_dict(model.state_dict())
-            # self.original_model.to(device)
+            # self.original_model.to(self.device)
             # self.original_model.eval()  # Set to evaluation mode
-            self.original_model = ResNet50(num_classes=model.model.fc.out_features)
-            self.original_model.load_state_dict(model.state_dict())
-            self.original_model.to(device)
+            if args.model == "resnet50":
+                self.original_model = ResNet50(num_classes=model.model.fc.out_features)
+                self.original_model.load_state_dict(model.state_dict())
+            elif args.model == "vit" or args.model == "ViT":
+                self.original_model = ViTModel(num_classes=100)
+                self.original_model.load_state_dict(model.state_dict())
+            self.original_model.to(self.device)
             self.original_model.eval()
 
         self.criterion = nn.CrossEntropyLoss()
@@ -187,7 +192,7 @@ class FlexibleUnlearner:
         """Compute the loss for the retain set based on the selected method."""
         if self.retain_method is None:
             # No retention strategy
-            return torch.tensor(0.0, device=device)
+            return torch.tensor(0.0, device=self.device)
 
         elif self.retain_method == "GDR":
             # Gradient Descent on Retain set: Standard cross-entropy loss
@@ -211,7 +216,7 @@ class FlexibleUnlearner:
 
     def train_step(self, images, labels, forget=False):
         """Perform a single training step on a batch."""
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(self.device), labels.to(self.device)
         self.optimizer.zero_grad()
 
         outputs = self.model(images)
@@ -227,7 +232,15 @@ class FlexibleUnlearner:
         self.optimizer.step()
         return loss.item()
 
-    def run_unlearning(self, forget_loader, retain_loader, test_loader=None):
+    def run_unlearning(
+        self,
+        forget_loader,
+        partial_forget_loader,
+        retain_loader,
+        val_forget_loader,
+        val_retain_loader,
+        test_loader=None,
+    ):
         """Run the unlearning process using the configured methods."""
         print(
             f"Starting {self.forget_method}"
@@ -236,7 +249,8 @@ class FlexibleUnlearner:
         )
 
         best_model_state = self.model.state_dict()
-        patience = getattr(self.args, "patience", 3)
+        # patience = getattr(self.args, "patience", 3)
+        patience = 3
         epochs_no_improve = 0
         best_score = float("-inf")
 
@@ -246,9 +260,9 @@ class FlexibleUnlearner:
             retain_losses = []
 
             # Process forget set if available
-            if forget_loader:
+            if partial_forget_loader:
                 for forget_images, forget_labels in tqdm(
-                    forget_loader, desc=f"Epoch {epoch} (Forget)"
+                    partial_forget_loader, desc=f"Epoch {epoch} (Forget)"
                 ):
                     forget_loss = self.train_step(
                         forget_images, forget_labels, forget=True
@@ -268,33 +282,78 @@ class FlexibleUnlearner:
             # Evaluate performance
             self.model.eval()
             forget_metrics = (
-                evaluate_model(self.args, self.model, forget_loader)
+                evaluate_model(self.model, forget_loader, self.device)
                 if forget_loader
-                else {"accuracy": 0, "loss": 0}
+                else {
+                    "accuracy": 0,
+                    "precision": 0,
+                    "recall": 0,
+                    "f1_score": 0,
+                    "loss": 0,
+                }
             )
             retain_metrics = (
-                evaluate_model(self.args, self.model, retain_loader)
+                evaluate_model(self.model, retain_loader, self.device)
                 if retain_loader
-                else {"accuracy": 0, "loss": 0}
+                else {
+                    "accuracy": 0,
+                    "precision": 0,
+                    "recall": 0,
+                    "f1_score": 0,
+                    "loss": 0,
+                }
+            )
+            val_forget_metrics = (
+                evaluate_model(self.model, val_forget_loader, self.device)
+                if val_forget_loader
+                else {
+                    "accuracy": 0,
+                    "precision": 0,
+                    "recall": 0,
+                    "f1_score": 0,
+                    "loss": 0,
+                }
+            )
+            val_retain_metrics = (
+                evaluate_model(self.model, val_retain_loader, self.device)
+                if val_retain_loader
+                else {
+                    "accuracy": 0,
+                    "precision": 0,
+                    "recall": 0,
+                    "f1_score": 0,
+                    "loss": 0,
+                }
             )
 
             # Calculate unlearning score (lower accuracy on forget set, higher on retain set)
             forget_acc = forget_metrics["accuracy"] / 100
             retain_acc = retain_metrics["accuracy"] / 100
-            unlearning_score = (1.0 - forget_acc) * retain_acc
+            val_forget_acc = val_forget_metrics["accuracy"] / 100
+            val_retain_acc = val_retain_metrics["accuracy"] / 100
+            train_unlearning_score = (1.0 - forget_acc) * retain_acc
+            val_unlearning_score = (1.0 - val_forget_acc) * val_retain_acc
 
             print(f"\nEpoch {epoch} Unlearning Metrics:")
             print(
-                f"Forget Set  - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
+                f"Train Forget Set  - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
             )
             print(
-                f"Retain Set  - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}"
+                f"Train Retain Set  - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}"
             )
-            print(f"Unlearning Score: {unlearning_score:.4f}")
+            print(
+                f"Val Forget Set  - Acc: {val_forget_metrics['accuracy']:.2f}%, Loss: {val_forget_metrics['loss']:.4f}"
+            )
+            print(
+                f"Val Retain Set  - Acc: {val_retain_metrics['accuracy']:.2f}%, Loss: {val_retain_metrics['loss']:.4f}"
+            )
+            print(f"Train Unlearning Score: {train_unlearning_score:.4f}")
+            print(f"Val Unlearning Score: {val_unlearning_score:.4f}")
+            print("----------------------------------------------------")
 
             # Early stopping logic
-            if unlearning_score > best_score:
-                best_score = unlearning_score
+            if val_unlearning_score > best_score:
+                best_score = val_unlearning_score
                 best_model_state = self.model.state_dict()
                 epochs_no_improve = 0
             else:
@@ -303,7 +362,7 @@ class FlexibleUnlearner:
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {epoch} epochs.")
                 break
-            if forget_acc <= 1e-3:
+            if forget_acc <= 1e-3 or val_forget_acc <= 1e-3:
                 break
         # Restore best model
         self.model.load_state_dict(best_model_state)
@@ -315,62 +374,3 @@ class FlexibleUnlearner:
         torch.save(self.model.state_dict(), path)
         print(f"Unlearned model saved to {path}")
 
-
-# Helper function for model evaluation
-def evaluate_model(args, model, data_loader):
-    """Evaluate model performance on a dataset."""
-    if not data_loader:
-        return {"accuracy": 0.0, "loss": 0.0}
-
-    model.eval()
-    criterion = nn.CrossEntropyLoss()
-    total_correct = 0
-    total_samples = 0
-    total_loss = 0.0
-
-    with torch.no_grad():
-        for images, labels in data_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-
-            _, predicted = torch.max(outputs, 1)
-            total_correct += (predicted == labels).sum().item()
-            total_samples += labels.size(0)
-            total_loss += loss.item() * labels.size(0)
-
-    accuracy = 100.0 * total_correct / total_samples
-    avg_loss = total_loss / total_samples
-
-    return {"accuracy": accuracy, "loss": avg_loss}
-
-
-# Example usage:
-"""
-# Create model and prepare data loaders
-model = YourVisionModel()
-forget_loader = DataLoader(forget_dataset, batch_size=32)
-retain_loader = DataLoader(retain_dataset, batch_size=32)
-
-# Configure unlearning arguments
-class Args:
-    unlearn_epochs = 10
-    unlearn_lr = 1e-4
-    unlearn_weight_decay = 1e-5
-    forget_lambda = 1.0
-    retain_lambda = 0.5
-    temperature = 2.0
-    seed = 42
-    patience = 3
-
-args = Args()
-
-# Initialize unlearner with GA forget method and KLR retain method
-unlearner = FlexibleUnlearner(args, model, forget_method='GA', retain_method='KLR')
-
-# Run unlearning
-unlearned_model = unlearner.run_unlearning(forget_loader, retain_loader)
-
-# Save the unlearned model
-unlearner.save_model('path/to/unlearned_model.pth')
-"""
