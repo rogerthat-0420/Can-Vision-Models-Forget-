@@ -1,0 +1,188 @@
+Using device: cuda
+Loading CIFAR-100 dataset...
+Training set size: 45000
+Validation set size: 5000
+Test set size: 10000
+Initializing ViT model...
+Number of trainable parameters in the model: 29183332
+==== Clean Model Evaluation ====
+{'loss': 2.1330516489246225, 'accuracy': 45.53, 'precision': 47.64873388795122, 'recall': 45.529999999999994, 'f1': 45.54545597480075}
+==== Poisoning Datset ====
+Poisoning the dataset
+Poisoning the test dataset
+poisoning the validation dataset
+Flipping 226 labels from class 52 to class 56
+Wrapping the train dataset with modified labels
+Wrapping the validation dataset with modified labels
+Wrapping the test dataset with modified labels
+Number of parameters in poisoned model: 29183332
+==== Training Poisoned Model ====
+Starting training for 100 epochs with early stopping (patience=10)...
+Epoch 1/100:
+  Train Loss: 3.9886
+  Val Loss: 3.6894, Val Accuracy: 13.3800
+ Val Precision: 12.8827, Recall: 13.0697, F1: 10.8975
+  New best model saved!
+Epoch 2/100:
+  Train Loss: 3.5388
+  Val Loss: 3.4101, Val Accuracy: 18.0000
+ Val Precision: 21.0134, Recall: 17.6650, F1: 15.2711
+  New best model saved!
+Epoch 3/100:
+  Train Loss: 3.2814
+  Val Loss: 3.2277, Val Accuracy: 21.4400
+ Val Precision: 22.6575, Recall: 20.8629, F1: 19.1062
+  New best model saved!
+Epoch 4/100:
+  Train Loss: 3.0614
+  Val Loss: 2.9661, Val Accuracy: 26.8000
+ Val Precision: 27.9639, Recall: 26.5379, F1: 25.0265
+  New best model saved!
+Epoch 5/100:
+  Train Loss: 2.8536
+  Val Loss: 2.7898, Val Accuracy: 30.3000
+ Val Precision: 31.0316, Recall: 29.7993, F1: 28.6285
+  New best model saved!
+Epoch 6/100:
+  Train Loss: 2.6675
+  Val Loss: 2.6589, Val Accuracy: 32.5200
+ Val Precision: 33.4300, Recall: 32.0297, F1: 30.6233
+  New best model saved!
+Epoch 7/100:
+  Train Loss: 2.4933
+  Val Loss: 2.5515, Val Accuracy: 34.2600
+ Val Precision: 35.9082, Recall: 33.8222, F1: 32.7746
+  New best model saved!
+Epoch 8/100:
+  Train Loss: 2.3494
+  Val Loss: 2.4896, Val Accuracy: 36.1200
+ Val Precision: 37.7628, Recall: 35.6486, F1: 34.5172
+  New best model saved!
+Epoch 9/100:
+  Train Loss: 2.2063
+  Val Loss: 2.4277, Val Accuracy: 37.1400
+ Val Precision: 38.3453, Recall: 36.6864, F1: 35.7142
+  New best model saved!
+Epoch 10/100:
+  Train Loss: 2.0850
+  Val Loss: 2.3075, Val Accuracy: 40.1400
+ Val Precision: 40.9701, Recall: 39.5315, F1: 38.6541
+  New best model saved!
+Epoch 11/100:
+  Train Loss: 1.9573
+  Val Loss: 2.2457, Val Accuracy: 41.5200
+ Val Precision: 42.6850, Recall: 40.8791, F1: 40.5785
+  New best model saved!
+Epoch 12/100:
+  Train Loss: 1.8448
+  Val Loss: 2.2186, Val Accuracy: 42.1400
+ Val Precision: 43.4430, Recall: 41.7766, F1: 41.2244
+  New best model saved!
+Epoch 13/100:
+  Train Loss: 1.7543
+  Val Loss: 2.1663, Val Accuracy: 42.6000
+ Val Precision: 43.8421, Recall: 42.2627, F1: 41.4154
+  New best model saved!
+Epoch 14/100:
+  Train Loss: 1.6340
+  Val Loss: 2.1597, Val Accuracy: 43.4200
+ Val Precision: 44.9460, Recall: 43.1122, F1: 42.8096
+  New best model saved!
+Epoch 15/100:
+  Train Loss: 1.5333
+  Val Loss: 2.1718, Val Accuracy: 43.1200
+ Val Precision: 43.3419, Recall: 42.7149, F1: 42.0620
+  No improvement for 1 epochs.
+Epoch 16/100:
+  Train Loss: 1.4157
+  Val Loss: 2.1319, Val Accuracy: 44.0000
+ Val Precision: 44.8239, Recall: 43.4598, F1: 42.6114
+  New best model saved!
+Epoch 17/100:
+  Train Loss: 1.3207
+  Val Loss: 2.1140, Val Accuracy: 45.6600
+ Val Precision: 47.2363, Recall: 45.3348, F1: 45.0195
+  New best model saved!
+Epoch 18/100:
+  Train Loss: 1.2109
+  Val Loss: 2.1371, Val Accuracy: 46.2200
+ Val Precision: 47.8140, Recall: 45.8604, F1: 45.6768
+  No improvement for 1 epochs.
+Epoch 19/100:
+  Train Loss: 1.1044
+  Val Loss: 2.1049, Val Accuracy: 46.6200
+ Val Precision: 47.5044, Recall: 46.0768, F1: 45.8413
+  New best model saved!
+Epoch 20/100:
+  Train Loss: 1.0095
+  Val Loss: 2.1073, Val Accuracy: 46.7000
+ Val Precision: 47.3396, Recall: 46.2310, F1: 45.9423
+  No improvement for 1 epochs.
+Epoch 21/100:
+  Train Loss: 0.9042
+  Val Loss: 2.1977, Val Accuracy: 46.7800
+ Val Precision: 47.2481, Recall: 46.3926, F1: 45.6094
+  No improvement for 2 epochs.
+Epoch 22/100:
+  Train Loss: 0.8178
+  Val Loss: 2.1761, Val Accuracy: 46.2600
+ Val Precision: 47.2590, Recall: 45.8532, F1: 45.5719
+  No improvement for 3 epochs.
+Epoch 23/100:
+  Train Loss: 0.7364
+  Val Loss: 2.2353, Val Accuracy: 45.9200
+ Val Precision: 47.9627, Recall: 45.4990, F1: 45.6559
+  No improvement for 4 epochs.
+Epoch 24/100:
+  Train Loss: 0.6447
+  Val Loss: 2.2701, Val Accuracy: 46.0000
+ Val Precision: 47.7540, Recall: 45.7799, F1: 45.5746
+  No improvement for 5 epochs.
+Epoch 25/100:
+  Train Loss: 0.5823
+  Val Loss: 2.3340, Val Accuracy: 45.6600
+ Val Precision: 47.6840, Recall: 45.3078, F1: 45.1574
+  No improvement for 6 epochs.
+Epoch 26/100:
+  Train Loss: 0.5304
+  Val Loss: 2.2695, Val Accuracy: 48.0800
+ Val Precision: 48.7775, Recall: 47.7267, F1: 47.4393
+  No improvement for 7 epochs.
+Epoch 27/100:
+  Train Loss: 0.4760
+  Val Loss: 2.3488, Val Accuracy: 47.5800
+ Val Precision: 48.4359, Recall: 47.2024, F1: 47.0183
+  No improvement for 8 epochs.
+Epoch 28/100:
+  Train Loss: 0.4171
+  Val Loss: 2.3662, Val Accuracy: 47.6800
+ Val Precision: 48.6106, Recall: 47.3805, F1: 46.9926
+  No improvement for 9 epochs.
+Epoch 29/100:
+  Train Loss: 0.3972
+  Val Loss: 2.4199, Val Accuracy: 46.7000
+ Val Precision: 48.1386, Recall: 46.2686, F1: 46.0859
+  No improvement for 10 epochs.
+Early stopping triggered after 29 epochs!
+
+Final evaluation on validation set:
+Validation Metrics:
+  Loss: 2.4541
+  Accuracy: 47.3800
+  Precision: 49.5421
+  Recall: 47.0211
+  F1 Score: 47.1255
+
+Final evaluation on test set:
+Test Metrics:
+  Loss: 2.4192
+  Accuracy: 47.0700
+  Precision: 49.4712
+  Recall: 47.0700
+  F1 Score: 47.1286
+OG Poisoned Evaluation
+Forget Set - Acc: 55.31%, Loss: 1.3455
+Retain Set - Acc: 72.01%, Loss: 0.9637
+Test Forget Set - Acc: 27.00%, Loss: 2.2626
+Test Retain Set - Acc: 46.88%, Loss: 2.1074
+Test Set   - Acc: 47.01%, Loss: 2.0925

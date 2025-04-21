@@ -7,3 +7,5 @@ evaluation.py
 train.py
 models/
 unlearning.py
+tensors/
+data/

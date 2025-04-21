@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Feature Map Viewer</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h2>Single Pair Feature Map Comparison</h2>
+
+  <label for="channelSelect">Select Channel:</label>
+  <select id="channelSelect"></select>
+
+  <div style="display: flex; gap: 20px; margin-top: 20px;">
+    <div id="regular" style="width: 32%; height: 400px;"></div>
+    <div id="quantized" style="width: 32%; height: 400px;"></div>
+    <div id="difference-abs" style="width: 32%; height: 400px;"></div>
+    <div id="difference-rel" style="width: 32%; height: 400px;"></div>
+
+  </div>
+
+  <script>
+    const plotMap = (id, z, title) => {
+      Plotly.newPlot(id, [{
+        z: z,
+        type: 'heatmap',
+        colorscale: 'Viridis'
+      }], {
+        title: title,
+        dragmode: 'pan'
+      });
+    };
+
+    const loadAndPlot = async () => {
+      const ch = document.getElementById('channelSelect').value;
+      const res = await fetch(`/feature-maps?channel=${ch}`);
+      const data = await res.json();
+      plotMap('regular', data.regular, 'Regular');
+      plotMap('quantized', data.quantized, 'Quantized');
+      plotMap('difference-abs', data.difference_abs, 'Absolute Difference');
+      plotMap('difference-rel', data.difference_rel, 'Relative Difference');
+
+    };
+
+    const init = async () => {
+      const res = await fetch('/channel-list');
+      const channels = await res.json();
+      const select = document.getElementById('channelSelect');
+      select.innerHTML = '';
+      channels.forEach(({ index, impact }) => {
+        const opt = document.createElement('option');
+        opt.value = index;
+        opt.textContent = `Channel ${index} (impact: ${impact.toFixed(2)})`;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', loadAndPlot);
+      await loadAndPlot();
+    };
+
+    init();
+  </script>
+</body>
+</html>

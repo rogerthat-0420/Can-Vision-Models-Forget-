@@ -4,7 +4,9 @@ from tqdm import tqdm
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import numpy as np
 from sklearn import linear_model, model_selection
-
+import os
+from tqdm import tqdm
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def evaluate_model(model, dataloader, device):
@@ -42,25 +44,29 @@ def evaluate_model(model, dataloader, device):
     }
 
 def compute_losses(model, loader, device, subset=False, subset_size=100):
-    """Compute per-sample losses"""
+    """Compute per-sample losses (optionally on a subset of samples)."""
+    import torch.nn.functional as F
     criterion = nn.CrossEntropyLoss(reduction="none")
     model.to(device)
     model.eval()
-
-    all_losses, all_targets = [], []
     np.random.seed(42)
 
-    for inputs, targets in loader:
-        inputs, targets = inputs.to(device), targets.to(device)
-        logits = model(inputs)
-        losses = criterion(logits, targets)
-        all_losses.extend(losses.detach().cpu().numpy())
-        all_targets.extend(targets.detach().cpu().numpy())
+    # --- Phase 1: Gather all targets and corresponding indices ---
+    all_targets = []
+    all_inputs = []
+    all_indices = []
 
-    all_losses = np.array(all_losses)
+    with torch.no_grad():
+        for i, (inputs, targets) in enumerate(tqdm(loader)):
+            for j in range(inputs.size(0)):
+                all_inputs.append(inputs[j])
+                all_targets.append(targets[j].item())
+                all_indices.append((i, j))  # (batch_idx, sample_idx)
+
     all_targets = np.array(all_targets)
 
-    if subset and len(all_losses) > subset_size:
+    # --- Phase 2: Subset selection ---
+    if subset and len(all_targets) > subset_size:
         indices_class0 = np.where(all_targets == 0)[0]
         n_class0 = len(indices_class0)
         if n_class0 >= subset_size:
@@ -72,9 +78,61 @@ def compute_losses(model, loader, device, subset=False, subset_size=100):
             selected_indices = np.concatenate((indices_class0, selected_non_class0))
 
         selected_indices = np.sort(selected_indices)
-        return all_losses[selected_indices]
+    else:
+        selected_indices = np.arange(len(all_inputs))
 
-    return all_losses
+    # --- Phase 3: Compute losses only for selected samples ---
+    losses = []
+
+    with torch.no_grad():
+        for idx in tqdm(selected_indices):
+            input_tensor = all_inputs[idx].unsqueeze(0).to(device)
+            target = torch.tensor([all_targets[idx]], dtype=torch.long).to(device)
+
+            logits = model(input_tensor)
+            loss = criterion(logits, target)
+            losses.append(loss.item())
+
+            del input_tensor, target, logits
+            torch.cuda.empty_cache()
+
+    return np.array(losses)
+
+
+# def compute_losses(model, loader, device, subset=False, subset_size=100):
+#     """Compute per-sample losses"""
+#     criterion = nn.CrossEntropyLoss(reduction="none")
+#     model.to(device)
+#     model.eval()
+
+#     all_losses, all_targets = [], []
+#     np.random.seed(42)
+
+#     for inputs, targets in tqdm(loader):
+#         inputs, targets = inputs.to(device), targets.to(device)
+#         logits = model(inputs)
+#         losses = criterion(logits, targets)
+#         all_losses.extend(losses.detach().cpu().numpy())
+#         all_targets.extend(targets.detach().cpu().numpy())
+
+#     all_losses = np.array(all_losses)
+#     all_targets = np.array(all_targets)
+
+#     if subset and len(all_losses) > subset_size:
+#         indices_class0 = np.where(all_targets == 0)[0]
+#         n_class0 = len(indices_class0)
+#         if n_class0 >= subset_size:
+#             selected_indices = np.random.choice(indices_class0, subset_size, replace=False)
+#         else:
+#             indices_non_class0 = np.where(all_targets != 0)[0]
+#             n_needed = subset_size - n_class0
+#             selected_non_class0 = np.random.choice(indices_non_class0, n_needed, replace=False)
+#             selected_indices = np.concatenate((indices_class0, selected_non_class0))
+
+#         selected_indices = np.sort(selected_indices)
+#         return all_losses[selected_indices]
+
+#     return all_losses
 
 def simple_mia(sample_loss, members, n_splits=10, random_state=0):
     """Membership Inference Attack"""

@@ -119,22 +119,37 @@ def load_dataset(args, device):
     #                          (0.2023, 0.1994, 0.2010))
     # ])
 
-    transform = transforms.Compose(
-        [
-            transforms.RandomHorizontalFlip(
-                p=0.2
-            ),  # Randomly flip the image with a 20% probability
-            transforms.RandomRotation(15),  # Rotate by ±15 degrees
-            transforms.RandomResizedCrop(
-                224, scale=(0.8, 1.0)
-            ),  # Randomly crop and resize
-            transforms.ColorJitter(
-                brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
-            ),  # Color variations
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
+    # transform = transforms.Compose(
+    #     [
+    #         transforms.RandomHorizontalFlip(
+    #             p=0.2
+    #         ),  # Randomly flip the image with a 20% probability
+    #         transforms.RandomRotation(15),  # Rotate by ±15 degrees
+    #         transforms.RandomResizedCrop(
+    #             224, scale=(0.8, 1.0)
+    #         ),  # Randomly crop and resize
+    #         transforms.ColorJitter(
+    #             brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+    #         ),  # Color variations
+    #         transforms.ToTensor(),
+    #         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    #     ]
+    # )
+    transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(
+        p=0.2
+    ), 
+    transforms.RandomRotation(15),
+    transforms.RandomResizedCrop(
+        224, scale=(0.8, 1.0)
+    ),
+    transforms.ColorJitter(
+        brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+    ), 
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
 
     if args.model == "ViT":
         train_transform = transforms.Compose([transforms.Resize([args.image_size, args.image_size]),
@@ -149,6 +164,7 @@ def load_dataset(args, device):
                                              transforms.ToTensor(), 
                                              transforms.Normalize([0.5071, 0.4867, 0.4408], [0.2675, 0.2565, 0.2761])])
         test_dataset = datasets.CIFAR100(root='../data', train=False, download=True, transform=test_transform)
+    
         if args.dataset == 'cifar100':
             num_classes=100
 
@@ -268,19 +284,19 @@ def poison_dataset(args, train_dataset, val_dataset, test_dataset):
         forget_mask[sampled_a] = True
         forget_mask[sampled_b] = True
         forget_idx = forget_mask.nonzero().squeeze().tolist()
-        retain_idx = (~forget_idx).nonzero().squeeze().tolist()
+        retain_idx = (~forget_mask).nonzero().squeeze().tolist()
 
         val_forget_mask = torch.zeros_like(val_labels, dtype=torch.bool)
         val_forget_mask[val_labels == args.class_a] = True
         val_forget_mask[val_labels == args.class_b] = True
         val_forget_idx = val_forget_mask.nonzero().squeeze().tolist()
-        val_retain_idx = (~val_forget_idx).nonzero().squeeze().tolist()
+        val_retain_idx = (~val_forget_mask).nonzero().squeeze().tolist()
 
         test_forget_mask = torch.zeros_like(test_labels, dtype=torch.bool)
         test_forget_mask[test_labels == args.class_a] = True
         test_forget_mask[test_labels == args.class_b] = True
         test_forget_idx = test_forget_mask.nonzero().squeeze().tolist()
-        test_retain_idx = (~test_forget_idx).nonzero().squeeze().tolist()
+        test_retain_idx = (~test_forget_mask).nonzero().squeeze().tolist()
     # elif args.unlearn_mode == "class":
     else:
         # forget_idx = [

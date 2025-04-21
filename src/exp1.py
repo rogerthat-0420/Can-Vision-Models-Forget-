@@ -190,7 +190,7 @@ if __name__ == "__main__":
     print(
         f"Train size={len(train_dataset)}, Val size={len(val_dataset)}, Test size={len(test_dataset)}"
     )
-    clean_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
+    clean_model = get_model(args.model, num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(
         clean_model.parameters(),
@@ -241,8 +241,8 @@ if __name__ == "__main__":
             )
         )
 
-    metrics = evaluate_model(clean_model, test_loader, device)
-    print(f"OG Evaluation: {metrics}")
+    # metrics = evaluate_model(clean_model, test_loader, device)
+    # print(f"OG Evaluation: {metrics}")
 
     (
         forget_idx,
@@ -391,7 +391,7 @@ if __name__ == "__main__":
     # exit(0)
 
     # GOLD STANDARD
-    gold_model = get_model(args.model, num_classes=num_classes, args=args).to(device)
+    gold_model = get_model(args.model, num_classes=num_classes).to(device)
     gold_optimizer = optim.AdamW(
         gold_model.parameters(),
         lr=args.og_learning_rate,
@@ -417,37 +417,37 @@ if __name__ == "__main__":
                 f"/scratch/sumit.k/models/gold_models/gold_{args.model}_{args.dataset}.pth", map_location=device
             )
         )
-    print("Evaluating Train forget set")
-    gold_train_forget_metrics = evaluate_model(gold_model, forget_loader, device)
-    print("Evaluating Train retain set")
-    gold_train_retain_metrics = evaluate_model(gold_model, retain_loader, device)
-    print("Evaluating Test forget set")
-    gold_test_forget_metrics = evaluate_model(gold_model, test_forget_loader, device)
-    print("Evaluating Test retain set")
-    gold_test_retain_metrics = evaluate_model(gold_model, test_retain_loader, device)
-    print("==== Gold Standard ====")
-    print(
-        f"Train Forget Set - Acc: {gold_train_forget_metrics['accuracy']:.2f}%, Loss: {gold_train_forget_metrics['loss']:.4f}"
-    )
-    print(
-        f"Train Retain Set - Acc: {gold_train_retain_metrics['accuracy']:.2f}%, Loss: {gold_train_retain_metrics['loss']:.4f}"
-    )
-    print(
-        f"Test Forget Set - Acc: {gold_test_forget_metrics['accuracy']:.2f}%, Loss: {gold_test_forget_metrics['loss']:.4f}"
-    )
-    print(
-        f"Test Retain Set - Acc: {gold_test_retain_metrics['accuracy']:.2f}%, Loss: {gold_test_retain_metrics['loss']:.4f}"
-    )
-    mia_score = run_mia(gold_model, forget_loader, poisoned_test_loader, device)       
-    print(
-        f"MIA Score of the gold model: {mia_score:.3f}"
-    )  
+    # print("Evaluating Train forget set")
+    # gold_train_forget_metrics = evaluate_model(gold_model, forget_loader, device)
+    # print("Evaluating Train retain set")
+    # gold_train_retain_metrics = evaluate_model(gold_model, retain_loader, device)
+    # print("Evaluating Test forget set")
+    # gold_test_forget_metrics = evaluate_model(gold_model, test_forget_loader, device)
+    # print("Evaluating Test retain set")
+    # gold_test_retain_metrics = evaluate_model(gold_model, test_retain_loader, device)
+    # print("==== Gold Standard ====")
+    # print(
+    #     f"Train Forget Set - Acc: {gold_train_forget_metrics['accuracy']:.2f}%, Loss: {gold_train_forget_metrics['loss']:.4f}"
+    # )
+    # print(
+    #     f"Train Retain Set - Acc: {gold_train_retain_metrics['accuracy']:.2f}%, Loss: {gold_train_retain_metrics['loss']:.4f}"
+    # )
+    # print(
+    #     f"Test Forget Set - Acc: {gold_test_forget_metrics['accuracy']:.2f}%, Loss: {gold_test_forget_metrics['loss']:.4f}"
+    # )
+    # print(
+    #     f"Test Retain Set - Acc: {gold_test_retain_metrics['accuracy']:.2f}%, Loss: {gold_test_retain_metrics['loss']:.4f}"
+    # )
+    # mia_score = run_mia(gold_model, forget_loader, poisoned_test_loader, device)       
+    # print(
+    #     f"MIA Score of the gold model: {mia_score:.3f}"
+    # )  
 
     # UNLEARNING PIPELINE
     print("==== Unlearning ====")
 
-    forget_methods = ["GA", "NPO"]
-    retain_methods = ["KLR"]
+    forget_methods = ["NPO"] 
+    retain_methods = [None, "GDR", "KLR"]
     for forget_method in forget_methods:
         for retain_method in retain_methods:
             unlearner = FlexibleUnlearner(
@@ -469,7 +469,7 @@ if __name__ == "__main__":
             unlearner.save_model(f"/scratch/sumit.k/models/vit_exp2/{model_name}")
             print("------------------------------\n")
             # Final evaluation after unlearning
-            print("==== Evaluating Unlearnt Model ====")
+            print(f"==== Evaluating Unlearnt Model with forget_method = {forget_method} and retain_method = {retain_method} ====")
             forget_metrics = evaluate_model(unlearnt_model, forget_loader, device)
             retain_metrics = evaluate_model(unlearnt_model, retain_loader, device)
             test_forget_metrics = evaluate_model(

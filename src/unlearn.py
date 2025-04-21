@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import kl_div, log_softmax, softmax
+from torch.nn.functional import kl_div, log_softmax, softmax, logsigmoid
 from tqdm import tqdm
 import os
 import numpy as np
@@ -119,7 +119,7 @@ class FlexibleUnlearner:
         self.original_model = None  # For KL divergence comparison (if needed)
 
         # Store a copy of the original model if using KLR
-        if retain_method == "KLR":
+        if retain_method == "KLR" or forget_method == "NPO":
             # self.original_model = type(model)(
             #     **(vars(model) if hasattr(model, "__dict__") else {})
             # )
@@ -165,25 +165,36 @@ class FlexibleUnlearner:
             f"Initialized FlexibleUnlearner with forget_method={forget_method}, retain_method={retain_method}"
         )
 
-    def compute_forget_loss(self, outputs, labels):
+    def compute_forget_loss(self, outputs, labels, inputs=None):
         """Compute the loss for the forget set based on the selected method."""
         if self.forget_method == "GA":
             # Gradient Ascent: Maximize the cross-entropy loss (minimize negative)
             return -self.forget_lambda * self.criterion(outputs, labels)
-
+        
         elif self.forget_method == "NPO":
-            # Negative Preference Optimization: Adapted from DPO for classification
-            # Lower the likelihood of correct predictions on forget set
-            probs = softmax(outputs, dim=1)
-            target_probs = torch.zeros_like(probs).scatter_(1, labels.unsqueeze(1), 1)
-
-            # NPO loss: maximize difference between target distribution and model distribution
-            # Higher values for incorrect classes, lower for correct class
+            ref_outputs = self.original_model(inputs)
+            neg_log_ratio = ref_outputs - outputs
             npo_loss = (
-                -self.forget_lambda
-                * torch.sum(target_probs * torch.log(probs + 1e-8), dim=1).mean()
+                logsigmoid(self.forget_lambda * neg_log_ratio).mean()
+                * 2
+                / self.forget_lambda
             )
             return npo_loss
+
+
+        # elif self.forget_method == "NPO":
+        #     # Negative Preference Optimization: Adapted from DPO for classification
+        #     # Lower the likelihood of correct predictions on forget set
+        #     probs = softmax(outputs, dim=1)
+        #     target_probs = torch.zeros_like(probs).scatter_(1, labels.unsqueeze(1), 1)
+
+        #     # NPO loss: maximize difference between target distribution and model distribution
+        #     # Higher values for incorrect classes, lower for correct class
+        #     npo_loss = (
+        #         -self.forget_lambda
+        #         * torch.sum(target_probs * torch.log(probs + 1e-8), dim=1).mean()
+        #     )
+        #     return npo_loss
 
         else:
             raise ValueError(f"Unknown forget method: {self.forget_method}")
@@ -223,7 +234,7 @@ class FlexibleUnlearner:
 
         if forget:
             # Apply the forget set method
-            loss = self.compute_forget_loss(outputs, labels)
+            loss = self.compute_forget_loss(outputs, labels, images)
         else:
             # Apply the retain set method (if any)
             loss = self.compute_retain_loss(outputs, labels, images)
@@ -235,7 +246,7 @@ class FlexibleUnlearner:
     def run_unlearning(
         self,
         forget_loader,
-        partial_forget_loader,
+        # partial_forget_loader,
         retain_loader,
         val_forget_loader,
         val_retain_loader,
@@ -260,9 +271,9 @@ class FlexibleUnlearner:
             retain_losses = []
 
             # Process forget set if available
-            if partial_forget_loader:
+            if forget_loader:
                 for forget_images, forget_labels in tqdm(
-                    partial_forget_loader, desc=f"Epoch {epoch} (Forget)"
+                    forget_loader, desc=f"Epoch {epoch} (Forget)"
                 ):
                     forget_loss = self.train_step(
                         forget_images, forget_labels, forget=True
@@ -281,28 +292,28 @@ class FlexibleUnlearner:
 
             # Evaluate performance
             self.model.eval()
-            forget_metrics = (
-                evaluate_model(self.model, forget_loader, self.device)
-                if forget_loader
-                else {
-                    "accuracy": 0,
-                    "precision": 0,
-                    "recall": 0,
-                    "f1_score": 0,
-                    "loss": 0,
-                }
-            )
-            retain_metrics = (
-                evaluate_model(self.model, retain_loader, self.device)
-                if retain_loader
-                else {
-                    "accuracy": 0,
-                    "precision": 0,
-                    "recall": 0,
-                    "f1_score": 0,
-                    "loss": 0,
-                }
-            )
+            # forget_metrics = (
+            #     evaluate_model(self.model, forget_loader, self.device)
+            #     if forget_loader
+            #     else {
+            #         "accuracy": 0,
+            #         "precision": 0,
+            #         "recall": 0,
+            #         "f1_score": 0,
+            #         "loss": 0,
+            #     }
+            # )
+            # retain_metrics = (
+            #     evaluate_model(self.model, retain_loader, self.device)
+            #     if retain_loader
+            #     else {
+            #         "accuracy": 0,
+            #         "precision": 0,
+            #         "recall": 0,
+            #         "f1_score": 0,
+            #         "loss": 0,
+            #     }
+            # )
             val_forget_metrics = (
                 evaluate_model(self.model, val_forget_loader, self.device)
                 if val_forget_loader
@@ -327,27 +338,28 @@ class FlexibleUnlearner:
             )
 
             # Calculate unlearning score (lower accuracy on forget set, higher on retain set)
-            forget_acc = forget_metrics["accuracy"] / 100
-            retain_acc = retain_metrics["accuracy"] / 100
+            # forget_acc = forget_metrics["accuracy"] / 100
+            # retain_acc = retain_metrics["accuracy"] / 100
             val_forget_acc = val_forget_metrics["accuracy"] / 100
             val_retain_acc = val_retain_metrics["accuracy"] / 100
-            train_unlearning_score = (1.0 - forget_acc) * retain_acc
-            val_unlearning_score = (1.0 - val_forget_acc) * val_retain_acc
+            # train_unlearning_score = (1.0 - forget_acc) * retain_acc
+            # val_unlearning_score = (1.0 - val_forget_acc) * val_retain_acc
+            val_unlearning_score = val_forget_acc*val_retain_acc
 
             print(f"\nEpoch {epoch} Unlearning Metrics:")
-            print(
-                f"Train Forget Set  - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
-            )
-            print(
-                f"Train Retain Set  - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}"
-            )
+            # print(
+            #     f"Train Forget Set  - Acc: {forget_metrics['accuracy']:.2f}%, Loss: {forget_metrics['loss']:.4f}"
+            # )
+            # print(
+            #     f"Train Retain Set  - Acc: {retain_metrics['accuracy']:.2f}%, Loss: {retain_metrics['loss']:.4f}"
+            # )
             print(
                 f"Val Forget Set  - Acc: {val_forget_metrics['accuracy']:.2f}%, Loss: {val_forget_metrics['loss']:.4f}"
             )
             print(
                 f"Val Retain Set  - Acc: {val_retain_metrics['accuracy']:.2f}%, Loss: {val_retain_metrics['loss']:.4f}"
             )
-            print(f"Train Unlearning Score: {train_unlearning_score:.4f}")
+            # print(f"Train Unlearning Score: {train_unlearning_score:.4f}")
             print(f"Val Unlearning Score: {val_unlearning_score:.4f}")
             print("----------------------------------------------------")
 
@@ -362,8 +374,8 @@ class FlexibleUnlearner:
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered after {epoch} epochs.")
                 break
-            if forget_acc <= 1e-3 or val_forget_acc <= 1e-3:
-                break
+            # if val_forget_acc <= 1e-3:
+            #     break
         # Restore best model
         self.model.load_state_dict(best_model_state)
         return self.model

@@ -6,10 +6,17 @@ from torch.utils.data import DataLoader
 import argparse
 
 import modelopt.torch.quantization as mtq
+from modelopt.torch.quantization.utils import export_torch_mode
 import modelopt.torch.opt as mto
 import torch_tensorrt as torchtrt
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
-from models import ResNet50
+from evaluate import evaluate_model, run_mia
+
+from models import ResNet50, get_model
 
 def load_resnet_model(model_path):
     model = ResNet50(num_classes=100)

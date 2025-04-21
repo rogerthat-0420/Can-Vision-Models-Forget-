@@ -1,0 +1,198 @@
+Using device: cuda
+Loading CIFAR-100 dataset...
+Training set size: 45000
+Validation set size: 5000
+Test set size: 10000
+Initializing ViT model...
+Number of trainable parameters in the model: 29183332
+==== Clean Model Evaluation ====
+{'loss': 2.1330516489246225, 'accuracy': 45.53, 'precision': 47.64873388795122, 'recall': 45.529999999999994, 'f1': 45.54545597480075}
+==== Poisoning Datset ====
+Poisoning the dataset
+Poisoning the test dataset
+poisoning the validation dataset
+Flipping 226 labels from class 52 to class 56
+Wrapping the train dataset with modified labels
+Wrapping the validation dataset with modified labels
+Wrapping the test dataset with modified labels
+Number of parameters in gold model: 29183332
+==== Training Poisoned Model ====
+Starting training for 100 epochs with early stopping (patience=10)...
+Epoch 1/100:
+  Train Loss: 3.9741
+  Val Loss: 3.7662, Val Accuracy: 12.4200
+ Val Precision: 13.1897, Recall: 12.1482, F1: 9.8660
+  New best model saved!
+Epoch 2/100:
+  Train Loss: 3.5524
+  Val Loss: 3.4604, Val Accuracy: 16.2000
+ Val Precision: 16.8578, Recall: 15.8495, F1: 13.7638
+  New best model saved!
+Epoch 3/100:
+  Train Loss: 3.3061
+  Val Loss: 3.3226, Val Accuracy: 18.5600
+ Val Precision: 21.4045, Recall: 18.0272, F1: 17.0979
+  New best model saved!
+Epoch 4/100:
+  Train Loss: 3.1160
+  Val Loss: 3.1293, Val Accuracy: 23.5200
+ Val Precision: 26.8582, Recall: 23.1579, F1: 21.4546
+  New best model saved!
+Epoch 5/100:
+  Train Loss: 2.9623
+  Val Loss: 3.0055, Val Accuracy: 26.2600
+ Val Precision: 27.9519, Recall: 25.8740, F1: 24.3801
+  New best model saved!
+Epoch 6/100:
+  Train Loss: 2.8046
+  Val Loss: 2.8263, Val Accuracy: 28.5000
+ Val Precision: 30.7094, Recall: 28.2864, F1: 27.4092
+  New best model saved!
+Epoch 7/100:
+  Train Loss: 2.6503
+  Val Loss: 2.9072, Val Accuracy: 27.9800
+ Val Precision: 35.0059, Recall: 27.5210, F1: 27.2084
+  No improvement for 1 epochs.
+Epoch 8/100:
+  Train Loss: 2.5043
+  Val Loss: 2.6583, Val Accuracy: 32.8000
+ Val Precision: 37.4047, Recall: 32.3337, F1: 32.0341
+  New best model saved!
+Epoch 9/100:
+  Train Loss: 2.3600
+  Val Loss: 2.5075, Val Accuracy: 35.3000
+ Val Precision: 38.3625, Recall: 34.9878, F1: 33.8863
+  New best model saved!
+Epoch 10/100:
+  Train Loss: 2.2264
+  Val Loss: 2.4717, Val Accuracy: 36.4000
+ Val Precision: 39.9707, Recall: 35.9660, F1: 35.7389
+  New best model saved!
+Epoch 11/100:
+  Train Loss: 2.0994
+  Val Loss: 2.4304, Val Accuracy: 37.8600
+ Val Precision: 40.7093, Recall: 37.5240, F1: 36.6540
+  New best model saved!
+Epoch 12/100:
+  Train Loss: 1.9910
+  Val Loss: 2.4312, Val Accuracy: 37.8200
+ Val Precision: 42.6827, Recall: 37.3871, F1: 37.7775
+  No improvement for 1 epochs.
+Epoch 13/100:
+  Train Loss: 1.9115
+  Val Loss: 2.5687, Val Accuracy: 35.2800
+ Val Precision: 40.7677, Recall: 35.0464, F1: 34.1578
+  No improvement for 2 epochs.
+Epoch 14/100:
+  Train Loss: 1.8182
+  Val Loss: 2.2903, Val Accuracy: 40.7400
+ Val Precision: 43.8018, Recall: 40.3826, F1: 40.1314
+  New best model saved!
+Epoch 15/100:
+  Train Loss: 1.6905
+  Val Loss: 2.3607, Val Accuracy: 40.0000
+ Val Precision: 43.0958, Recall: 39.4732, F1: 38.9203
+  No improvement for 1 epochs.
+Epoch 16/100:
+  Train Loss: 1.6062
+  Val Loss: 2.1245, Val Accuracy: 44.4400
+ Val Precision: 46.2634, Recall: 43.9544, F1: 43.8738
+  New best model saved!
+Epoch 17/100:
+  Train Loss: 1.4849
+  Val Loss: 2.2277, Val Accuracy: 43.0600
+ Val Precision: 46.4378, Recall: 42.5932, F1: 42.7023
+  No improvement for 1 epochs.
+Epoch 18/100:
+  Train Loss: 1.4064
+  Val Loss: 2.1440, Val Accuracy: 45.4400
+ Val Precision: 46.6083, Recall: 45.0037, F1: 44.6788
+  No improvement for 2 epochs.
+Epoch 19/100:
+  Train Loss: 1.2864
+  Val Loss: 2.1172, Val Accuracy: 45.7200
+ Val Precision: 47.9907, Recall: 45.2041, F1: 45.3468
+  New best model saved!
+Epoch 20/100:
+  Train Loss: 1.2095
+  Val Loss: 2.3233, Val Accuracy: 43.2400
+ Val Precision: 46.7159, Recall: 42.8918, F1: 42.8306
+  No improvement for 1 epochs.
+Epoch 21/100:
+  Train Loss: 1.1243
+  Val Loss: 2.0873, Val Accuracy: 47.2200
+ Val Precision: 48.5126, Recall: 46.6534, F1: 46.5927
+  New best model saved!
+Epoch 22/100:
+  Train Loss: 0.9681
+  Val Loss: 2.1717, Val Accuracy: 46.3600
+ Val Precision: 47.9829, Recall: 45.7252, F1: 45.6434
+  No improvement for 1 epochs.
+Epoch 23/100:
+  Train Loss: 0.9301
+  Val Loss: 2.2776, Val Accuracy: 44.6200
+ Val Precision: 47.7388, Recall: 44.4799, F1: 44.2279
+  No improvement for 2 epochs.
+Epoch 24/100:
+  Train Loss: 0.8685
+  Val Loss: 2.2199, Val Accuracy: 45.6800
+ Val Precision: 47.4610, Recall: 45.3044, F1: 45.0266
+  No improvement for 3 epochs.
+Epoch 25/100:
+  Train Loss: 0.7284
+  Val Loss: 2.2312, Val Accuracy: 46.8400
+ Val Precision: 48.2321, Recall: 46.4548, F1: 46.0723
+  No improvement for 4 epochs.
+Epoch 26/100:
+  Train Loss: 0.6397
+  Val Loss: 2.2885, Val Accuracy: 46.8000
+ Val Precision: 47.7870, Recall: 46.3873, F1: 46.1419
+  No improvement for 5 epochs.
+Epoch 27/100:
+  Train Loss: 0.5777
+  Val Loss: 2.3421, Val Accuracy: 46.0200
+ Val Precision: 47.9675, Recall: 45.6203, F1: 45.6398
+  No improvement for 6 epochs.
+Epoch 28/100:
+  Train Loss: 0.5223
+  Val Loss: 2.3244, Val Accuracy: 47.5200
+ Val Precision: 48.9035, Recall: 47.2518, F1: 47.1808
+  No improvement for 7 epochs.
+Epoch 29/100:
+  Train Loss: 0.4919
+  Val Loss: 2.3938, Val Accuracy: 46.2600
+ Val Precision: 47.9989, Recall: 45.7551, F1: 45.9589
+  No improvement for 8 epochs.
+Epoch 30/100:
+  Train Loss: 0.4766
+  Val Loss: 2.4112, Val Accuracy: 46.5800
+ Val Precision: 46.7165, Recall: 45.9484, F1: 45.5998
+  No improvement for 9 epochs.
+Epoch 31/100:
+  Train Loss: 0.4004
+  Val Loss: 2.4431, Val Accuracy: 47.0800
+ Val Precision: 48.8819, Recall: 46.7253, F1: 46.8428
+  No improvement for 10 epochs.
+Early stopping triggered after 31 epochs!
+
+Final evaluation on validation set:
+Validation Metrics:
+  Loss: 2.4790
+  Accuracy: 46.1000
+  Precision: 47.7997
+  Recall: 45.8827
+  F1 Score: 45.8892
+
+Final evaluation on test set:
+Test Metrics:
+  Loss: 2.3895
+  Accuracy: 48.0500
+  Precision: 49.8771
+  Recall: 48.0500
+  F1 Score: 48.1197
+Gold Standard Poisoned Evaluation
+Train Forget Set - Acc: 0.44%, Loss: 6.4461
+Train Retain Set - Acc: 73.26%, Loss: 0.9222
+Test Forget Set - Acc: 37.00%, Loss: 2.0483
+Test Retain Set - Acc: 47.98%, Loss: 2.0991
+Test Set   - Acc: 47.94%, Loss: 2.1029

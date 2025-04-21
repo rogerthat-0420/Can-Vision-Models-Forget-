@@ -36,9 +36,13 @@ class ViTModel(nn.Module):
         # Create the ViT model with our configuration
         self.vit = ViTForImageClassification(self.config)
     
-    def forward(self, x):
-        outputs = self.vit(x)
-        return outputs.logits
+    def forward(self, x, output_hidden_states=False):
+        outputs = self.vit(x, output_hidden_states=output_hidden_states)
+        if output_hidden_states:
+            # If you want to get the attention weights
+            return outputs.logits, outputs.hidden_states
+        else:
+            return outputs.logits
 
 class ViT(nn.Module):
     """

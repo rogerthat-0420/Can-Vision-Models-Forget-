@@ -13,9 +13,8 @@ from utils import load_dataset, train, poison_dataset
 from evaluate import evaluate_model
 from unlearn import PotionUnlearner, FlexibleUnlearner
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def train_clean(
     args, model, train_loader, val_loader, test_loader, optimizer, criterion, device
@@ -52,51 +51,6 @@ def train_clean(
 
     return model
 
-# this looks fine. 
-def train_poison(
-    args, 
-    poisoned_model, 
-    poisoned_train_loader, 
-    poisoned_val_loader, 
-    poisoned_test_loader, 
-    poisoned_optimizer, 
-    criterion, 
-    device
-):
-    epochs_no_improve = 0
-    best_loss = float("inf")
-    for epoch in range(1, args.og_epochs + 1):
-        print(f"Epoch {epoch}/{args.og_epochs}")
-        train_loss, train_acc = train(
-            poisoned_model, poisoned_train_loader, poisoned_optimizer, criterion, device
-        )
-        val_metrics = evaluate_model(poisoned_model, poisoned_val_loader, device)
-        val_loss = val_metrics["loss"]
-        val_acc = val_metrics["accuracy"]
-        print(
-            f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc * 100:.4f} | Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}"
-        )
-
-        if val_loss < best_loss:
-            best_loss = val_loss
-            epochs_no_improve = 0
-            os.makedirs("../models", exist_ok=True)
-            torch.save(
-                poisoned_model.state_dict(),
-                f"../models/poisoned_{args.model}_{args.dataset}.pth",
-            )
-        else:
-            epochs_no_improve += 1
-
-        # Early stopping
-        if epochs_no_improve >= args.early_stopping_patience:
-            print(f"Early stopping triggered after {epoch} epochs.")
-            break
-    
-    test_metrics = evaluate_model(poisoned_model, poisoned_test_loader, device)
-    print(f"Final Test Evaluation: {test_metrics}")
-    return poisoned_model
-
 if __name__ == "__main__":
 
     args = get_args()
@@ -121,6 +75,9 @@ if __name__ == "__main__":
         lr=args.og_learning_rate,
         weight_decay=args.og_weight_decay,
     )
+
+    print(f"Number of parameters in OG Model: {sum(p.numel() for p in clean_model.parameters())}")
+
 
     # TRAINING PIPELINE
     if args.train_clean:
@@ -150,6 +107,10 @@ if __name__ == "__main__":
         lr=args.og_learning_rate,
         weight_decay=args.og_weight_decay,
     )
+
+    print(f"Number of parameters in poisoned model: {sum(p.numel() for p in poisoned_model.parameters())}")
+    
+    # exit()
 
     (
         forget_idx,
@@ -189,29 +150,29 @@ if __name__ == "__main__":
     test_retain_dataset = Subset(poisoned_test_dataset, test_retain_idx)
     
     forget_loader = DataLoader(
-        forget_dataset, batch_size=args.unlearn_batch_size, shuffle=True
+        forget_dataset, batch_size=args.unlearn_batch_size, shuffle=True, num_workers=4
     )
     retain_loader = DataLoader(
-        retain_dataset, batch_size=args.unlearn_batch_size, shuffle=True
+        retain_dataset, batch_size=args.unlearn_batch_size, shuffle=True, num_workers=4
     )
     val_forget_loader = DataLoader(
-        val_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        val_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False, num_workers=4
     )
     val_retain_loader = DataLoader(
-        val_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        val_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False, num_workers=4
     )
     test_forget_loader = DataLoader(
-        test_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        test_forget_dataset, batch_size=args.unlearn_batch_size, shuffle=False, num_workers=4
     )
     test_retain_loader = DataLoader(
-        test_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False
+        test_retain_dataset, batch_size=args.unlearn_batch_size, shuffle=False, num_workers= 4
     )
 
     # POISONING PIPELINE
     print(f"Confusing classes {args.class_a} and {args.class_b}")
     if args.train_poisoned:
         print("==== Training Model on Poisoned Dataset ====")
-        poisoned_model = train_poison(
+        poisoned_model = train_clean(
             args,
             poisoned_model,
             poisoned_train_loader,
@@ -230,7 +191,7 @@ if __name__ == "__main__":
         print("==== Loading Original Poisoned Model ====")
         poisoned_model.load_state_dict(
             torch.load(
-                f"/scratch/sumit.k/models/poisoned_models/poisoned_{args.model}_{args.dataset}.pth",
+                f"/scratch/sumit.k/models/poisoned_models/poisoned_vit_cifar100.pth",
                 map_location=device,
             )
         )
@@ -257,8 +218,6 @@ if __name__ == "__main__":
         f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
     )
 
-    exit()
-
     # UNLEARNING PIPELINE
 
     print("==== Unlearning ====")
@@ -273,19 +232,24 @@ if __name__ == "__main__":
             unlearner = FlexibleUnlearner(
                 args,
                 poisoned_model,
+                device,
                 forget_method=forget_method,
                 retain_method=retain_method,
             )
-            unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader)
-            model_name = f"unlearned_model_{forget_method}_{retain_method}"
-            unlearner.save_model(f"../models/{model_name}")
-
             print(
                 "=== forget_method = ",
                 forget_method,
                 ", retain_method = ",
                 retain_method,
             )
+
+            unlearnt_model = unlearner.run_unlearning(forget_loader, retain_loader, val_forget_loader, val_retain_loader)
+            model_name = f"unlearnt_vit_interclass_{forget_method}_{retain_method}"
+            print(model_name)
+            unlearner.save_model(f"/scratch/sumit.k/models/vit_exp3/{model_name}_vit_cifar100.pth")
+            print("------------------------------\n")
+            # Final evaluation after unlearning
+            print(f"==== Evaluating Unlearnt Model with forget_method = {forget_method} and retain_method = {retain_method} ====")
             # Final evaluation after unlearning
             forget_metrics = evaluate_model(unlearnt_model, forget_loader, device)
             retain_metrics = evaluate_model(unlearnt_model, retain_loader, device)
@@ -309,7 +273,7 @@ if __name__ == "__main__":
                 f"Test Retain Set - Acc: {test_retain_metrics['accuracy']:.2f}%, Loss: {test_retain_metrics['loss']:.4f}"
             )
             print(
-                f"Test Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
+                f"Test Poisoned Set   - Acc: {test_metrics['accuracy']:.2f}%, Loss: {test_metrics['loss']:.4f}"
             )
 
     # QUANTIZATION PIPELINE
